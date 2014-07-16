@@ -17,9 +17,21 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  -- exposed-modules:     
+  exposed-modules:     Simulation.Node.Endpoint
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
-  -- hs-source-dirs:      
+  hs-source-dirs:      src
   default-language:    Haskell2010
+  ghc-options:         -Wall
+
+test-suite programmable-endpoint-tests
+  type:                exitcode-stdio-1.0
+  main-is:             TestMain.hs
+  build-depends:       base >=4.7 && <4.8
+                       , HUnit >= 1.2.5
+                       , test-framework >= 0.8
+                       , test-framework-hunit >= 0.3
+  hs-source-dirs:      src, test
+  default-language:    Haskell2010
+  ghc-options:         -Wall
