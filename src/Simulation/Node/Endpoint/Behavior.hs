@@ -1,44 +1,53 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Simulation.Node.Endpoint.Behavior
        ( Behavior
+       , BehaviorApiParam (..)
        , BehaviorState
-       , runBehavior
-       , dummy1
+       , runBehaviorTest
+       , get
+       , put
+       , liftIO
+       , selfIpAddress
        ) where
 
-import Control.Applicative (Applicative)
+import Control.Applicative (Applicative, (<$>))
 import Control.Monad.Reader (ReaderT, MonadIO, runReaderT, liftIO)
 import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
+import Data.Text (Text)
 
+-- | The BehaviorT monad transformer; r is the api parameter type, s
+-- is the user supplied behavior state and a is the reply type of the
+-- action.
 newtype BehaviorT r s a =
   BehaviorT { extractBehaviorT :: ReaderT r (StateT s IO) a }
-  deriving (Monad, MonadIO, MonadReader r, MonadState s)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadReader r, MonadState s)
 
-type Behavior = BehaviorT Int
+-- | Type shortcut where the type r is forced to be of kind BehaviorApiParam.
+type Behavior = BehaviorT BehaviorApiParam
 
+-- | Record with api parameters for the execution of the Behavior monad.
+data BehaviorApiParam =
+  BehaviorApiParam { selfIpAddress_ :: !String }
+  deriving Show
+
+-- | Typeclass for the user supplied behavior state.
 class BehaviorState a where
-  initial :: a
+  -- Fetch the initial state and a slogan text for the behavior.
+  fetch :: IO (Text, a)
 
-runBehavior :: BehaviorState s => Behavior s () -> Int -> IO () 
-runBehavior action rr = do
-  _ <- runStateT (runReaderT (extractBehaviorT action) rr) initial
-  return ()
+-- | Run a behavior in a way suitable for testing of behaviors.
+runBehaviorTest :: BehaviorState s  =>
+                   Behavior s a     ->
+                   BehaviorApiParam -> IO (Text, a, s) 
+runBehaviorTest action param = do
+  (slogan, initial) <- fetch
+  (result, state)   <-
+    runStateT (runReaderT (extractBehaviorT action) param) initial
+  return (slogan, result, state)
 
-data DummyState = DummyState !String
-   deriving Show
-
-instance BehaviorState DummyState where
-  initial = DummyState "Frasse"
-
-dummy1 :: Behavior DummyState ()
-dummy1 = do
-  myStatic <- ask
-  myDynamic <- get
-  put (DummyState "Sigge")
-  myDynamic' <- get
-  liftIO $ print myStatic
-  liftIO $ print myDynamic
-  liftIO $ print myDynamic'
+-- | Fetch own's ip address.
+selfIpAddress :: Behavior s String
+selfIpAddress = selfIpAddress_ <$> ask
   
