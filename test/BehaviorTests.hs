@@ -17,21 +17,30 @@ suite :: Test.Framework.Test
 suite = testGroup "Behavior tests"
         [ testCase "Slogan shall be returned back"
                    sloganShallBeReturnedBack
+        , testCase "Initial state shall be returned back"
+                   initialStateShallBeReturnedBack
         ]
 
-data TestState = TestState
+data TestState = InitialState
+  deriving (Eq, Show)
 
 instance BehaviorState TestState where
-  fetch = return ("TestSlogan", TestState)
+  fetch = return ("TestSlogan", InitialState)
 
-testAction :: Behavior TestState ()
-testAction = return ()
+emptyAction :: Behavior TestState ()
+emptyAction = return ()
 
 sloganShallBeReturnedBack :: Assertion
 sloganShallBeReturnedBack = do
-  (slogan, _, _) <- runBehaviorTest testAction makeApiParam
+  (slogan, _, _) <- runBehaviorTest emptyAction makeApiParam
   assertEqual "Shall be equal"
               "TestSlogan" slogan
+
+initialStateShallBeReturnedBack :: Assertion
+initialStateShallBeReturnedBack = do
+  (_, _, initialState) <- runBehaviorTest emptyAction makeApiParam
+  assertEqual "Shall be equal"
+              InitialState initialState
 
 makeApiParam :: BehaviorApiParam
 makeApiParam = BehaviorApiParam "127.0.0.1"
