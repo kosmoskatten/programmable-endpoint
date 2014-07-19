@@ -25,6 +25,8 @@ suite = testGroup "Endpoint tests"
                    shallBeDifferentEndpoints
         , testCase "Shall be different receipts"
                    shallBeDifferentReceipts
+        , testCase "Shall remove a behavior once"
+                   shallRemoveABehaviorOnce
         ]
 
 data TestState = TestState
@@ -52,4 +54,17 @@ shallBeDifferentReceipts = do
   assertBool "Shall be different" $ r1 /= r2
   void $ removeBehavior r1 ep
   void $ removeBehavior r2 ep
+  destroy ep
+
+shallRemoveABehaviorOnce :: Assertion
+shallRemoveABehaviorOnce = do
+  ep <- create "127.0.0.1"
+  r  <- addBehavior emptyAction ep
+  resultSuccess <- removeBehavior r ep
+  resultFailure <- removeBehavior r ep
+  assertEqual "Shall be Right ()"
+              (Right ()) resultSuccess
+  assertBool "Shall be different" $ resultSuccess /= resultFailure
+  destroy ep
+  
 
