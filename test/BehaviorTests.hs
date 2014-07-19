@@ -17,6 +17,8 @@ suite :: Test.Framework.Test
 suite = testGroup "Behavior tests"
         [ testCase "Slogan shall be returned back"
                    sloganShallBeReturnedBack
+        , testCase "Unit shall be returned back"
+                   unitShallBeReturnedBack                   
         , testCase "Initial state shall be returned back"
                    initialStateShallBeReturnedBack
         ]
@@ -35,6 +37,12 @@ sloganShallBeReturnedBack = do
   (slogan, _, _) <- runBehaviorTest emptyAction makeApiParam
   assertEqual "Shall be equal"
               "TestSlogan" slogan
+
+unitShallBeReturnedBack :: Assertion
+unitShallBeReturnedBack = do
+  (_, unit, _) <- runBehaviorTest emptyAction makeApiParam
+  assertEqual "Shall be equal"
+              () unit
 
 initialStateShallBeReturnedBack :: Assertion
 initialStateShallBeReturnedBack = do
