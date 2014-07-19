@@ -32,18 +32,24 @@ instance BehaviorState TestState where
 emptyAction :: Behavior TestState ()
 emptyAction = return ()
 
+-- | Unit test with the empty action to make sure that the slogan is
+-- retured back from runBehaviorTest.
 sloganShallBeReturnedBack :: Assertion
 sloganShallBeReturnedBack = do
   (slogan, _, _) <- runBehaviorTest emptyAction makeApiParam
   assertEqual "Shall be equal"
               "TestSlogan" slogan
 
+-- | Unit test with empty action to make sure that () is returned back
+-- from runBehaviorTest.
 unitShallBeReturnedBack :: Assertion
 unitShallBeReturnedBack = do
   (_, unit, _) <- runBehaviorTest emptyAction makeApiParam
   assertEqual "Shall be equal"
               () unit
 
+-- | Unit test with empty action to make sure that the initial state
+-- is returned back from runBehaviorTest.
 initialStateShallBeReturnedBack :: Assertion
 initialStateShallBeReturnedBack = do
   (_, _, initialState) <- runBehaviorTest emptyAction makeApiParam
