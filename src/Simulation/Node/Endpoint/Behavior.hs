@@ -2,7 +2,7 @@
 module Simulation.Node.Endpoint.Behavior
        ( Behavior
        , BehaviorApiParam (..)
-       , BehaviorState
+       , BehaviorState (..)
        , runBehaviorTest
        , get
        , put

@@ -33,6 +33,8 @@ library
 test-suite programmable-endpoint-tests
   type:                exitcode-stdio-1.0
   main-is:             TestMain.hs
+  other-modules:       EndpointTests
+                       , BehaviorTests
   build-depends:       base >=4.7 && <4.8
                        , HUnit >= 1.2.5
                        , test-framework >= 0.8
