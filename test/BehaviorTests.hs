@@ -11,6 +11,7 @@ import Simulation.Node.Endpoint.Behavior
   , BehaviorApiParam (..)
   , BehaviorState (..)
   , runBehaviorTest
+  , put
   )
 
 suite :: Test.Framework.Test
@@ -21,9 +22,11 @@ suite = testGroup "Behavior tests"
                    unitShallBeReturnedBack                   
         , testCase "Initial state shall be returned back"
                    initialStateShallBeReturnedBack
+        , testCase "Stepped state shall be returned back"
+                   steppedStateShallBeReturnedBack
         ]
 
-data TestState = InitialState
+data TestState = InitialState | SteppedState
   deriving (Eq, Show)
 
 instance BehaviorState TestState where
@@ -31,6 +34,10 @@ instance BehaviorState TestState where
 
 emptyAction :: Behavior TestState ()
 emptyAction = return ()
+
+stepStateAction :: Behavior TestState ()
+stepStateAction = do
+  put SteppedState
 
 -- | Unit test with the empty action to make sure that the slogan is
 -- retured back from runBehaviorTest.
@@ -55,6 +62,14 @@ initialStateShallBeReturnedBack = do
   (_, _, initialState) <- runBehaviorTest emptyAction makeApiParam
   assertEqual "Shall be equal"
               InitialState initialState
+
+-- | Unit test with an action that steps the state. Make sure that the
+-- stepped state is returned back from runBehaviorTest.
+steppedStateShallBeReturnedBack :: Assertion
+steppedStateShallBeReturnedBack = do
+  (_, _, steppedState) <- runBehaviorTest stepStateAction makeApiParam
+  assertEqual "Shall be equal"
+              SteppedState steppedState
 
 makeApiParam :: BehaviorApiParam
 makeApiParam = BehaviorApiParam "127.0.0.1"
