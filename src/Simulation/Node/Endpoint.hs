@@ -9,7 +9,13 @@ module Simulation.Node.Endpoint
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Concurrent.STM (TVar, newTVarIO)
+import Control.Concurrent.STM
+  ( TVar
+  , atomically
+  , newTVarIO
+  , readTVar
+  , modifyTVar
+  )
 import qualified Data.Map.Strict as Map
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
@@ -29,7 +35,7 @@ data Endpoint =
 
 -- | A receipt for an added behavior.
 newtype Receipt = Receipt Int
-  deriving Eq
+  deriving (Eq, Ord)
 
 -- | Create an endpoint instance.
 create :: IpAddress -> IO Endpoint
@@ -42,7 +48,14 @@ destroy _ = return ()
 
 -- | Add a behavior to the endpoint.
 addBehavior :: BehaviorState s => Behavior s a -> Endpoint -> IO Receipt
-addBehavior action endpoint = return $ Receipt 1
+addBehavior action endpoint =
+  atomically $ do
+    let counter   = receiptCounter endpoint
+        behaviors = behaviorMap endpoint
+    receipt <- Receipt <$> readTVar counter
+    modifyTVar counter (+ 1)
+    modifyTVar behaviors (Map.insert receipt 1)
+    return receipt        
 
 -- | Remove a behavior from the endpoint.
 removeBehavior :: Receipt -> Endpoint -> IO (Either String ())
