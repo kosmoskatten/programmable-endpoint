@@ -13,6 +13,7 @@ import Simulation.Node.Endpoint.Behavior
   , runBehaviorTest
   , get
   , put
+  , selfIpAddress
   )
 
 suite :: Test.Framework.Test
@@ -27,6 +28,8 @@ suite = testGroup "Behavior tests"
                    steppedStateShallBeReturnedBack
         , testCase "Initial state shall be returned back as value"
                    initialStateShallBeReturnedBackAsValue
+        , testCase "Api selfIpAddress shall return api param value"
+                   selfIpAddressShallReturnApiParamValue
         ]
 
 data TestState = InitialState | SteppedState
@@ -44,6 +47,9 @@ stepStateAction = do
 
 getStateAction :: Behavior TestState TestState
 getStateAction = get
+
+selfIpAddress' :: Behavior TestState String
+selfIpAddress' = selfIpAddress
 
 -- | Unit test with the empty action to make sure that the slogan is
 -- retured back from runBehaviorTest.
@@ -85,6 +91,15 @@ initialStateShallBeReturnedBackAsValue = do
   assertEqual "Shall be equal"
               InitialState initialState
 
+-- | Test that selfIpAddress return the value from api params.
+selfIpAddressShallReturnApiParamValue :: Assertion
+selfIpAddressShallReturnApiParamValue = do
+  (_, ipAddress, _) <- runBehaviorTest selfIpAddress' makeApiParam
+  assertEqual "Shall be equal"
+              localhost ipAddress
+
 makeApiParam :: BehaviorApiParam
-makeApiParam = BehaviorApiParam "127.0.0.1"
+makeApiParam = BehaviorApiParam localhost
       
+localhost :: String
+localhost = "127.0.0.1"
