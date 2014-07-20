@@ -46,7 +46,7 @@ newtype Receipt = Receipt Int
 -- | Create an endpoint instance.
 create :: IpAddress -> IO Endpoint
 create theIpAddress =
-  Endpoint theIpAddress <$> newTVarIO 1 <*> newTVarIO (Map.empty)
+  Endpoint theIpAddress <$> newTVarIO 1 <*> newTVarIO Map.empty
 
 -- | Destroy an endpoint instance.
 destroy :: Endpoint -> IO ()
