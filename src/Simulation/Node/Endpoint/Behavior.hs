@@ -3,6 +3,7 @@ module Simulation.Node.Endpoint.Behavior
        ( Behavior
        , BehaviorApiParam (..)
        , BehaviorState (..)
+       , runBehavior
        , runBehaviorTest
        , get
        , put
@@ -15,6 +16,7 @@ module Simulation.Node.Endpoint.Behavior
 
 import Control.Applicative (Applicative, (<$>))
 import Control.Concurrent (threadDelay)
+import Control.Monad (void)
 import Control.Monad.Reader (ReaderT, MonadIO, runReaderT, liftIO)
 import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Reader.Class (MonadReader, ask)
@@ -41,14 +43,20 @@ class BehaviorState a where
   -- Fetch the initial state and a slogan text for the behavior.
   fetch :: IO (Text, a)
 
+-- | Run a behavior.
+runBehavior :: BehaviorState s => Behavior s () -> BehaviorApiParam -> IO ()
+runBehavior action param = do
+  (_, initialState) <- fetch
+  void $ runStateT (runReaderT (extractBehaviorT action) param) initialState
+
 -- | Run a behavior in a way suitable for testing of behaviors.
 runBehaviorTest :: BehaviorState s  =>
                    Behavior s a     ->
                    BehaviorApiParam -> IO (Text, a, s) 
 runBehaviorTest action param = do
-  (slogan, initial) <- fetch
+  (slogan, initialState) <- fetch
   (result, state)   <-
-    runStateT (runReaderT (extractBehaviorT action) param) initial
+    runStateT (runReaderT (extractBehaviorT action) param) initialState
   return (slogan, result, state)
 
 -- | Fetch own's ip address.
