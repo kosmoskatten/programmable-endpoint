@@ -44,9 +44,11 @@ class BehaviorState a where
   fetch :: IO (Text, a)
 
 -- | Run a behavior.
-runBehavior :: BehaviorState s => Behavior s () -> BehaviorApiParam -> IO ()
-runBehavior action param = do
-  (_, initialState) <- fetch
+runBehavior :: BehaviorState s  =>
+               Behavior s ()    ->
+               BehaviorApiParam ->
+               s -> IO ()
+runBehavior action param initialState =
   void $ runStateT (runReaderT (extractBehaviorT action) param) initialState
 
 -- | Run a behavior in a way suitable for testing of behaviors.
