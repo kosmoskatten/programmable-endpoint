@@ -26,6 +26,7 @@ import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
   , liftIO
+  , sleepMsec
   )
 
 suite :: Test.Framework.Test
@@ -53,7 +54,7 @@ countingAction :: TVar Int -> Behavior TestState ()
 countingAction tvar =
   forever $ do
     liftIO $ atomically (modifyTVar tvar (+ 1))
-    liftIO $ threadDelay 10000 -- 1/100th
+    sleepMsec 10
 
 -- | Test that two endpoints, for two different, IP addresses are
 -- unequal.

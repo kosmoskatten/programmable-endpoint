@@ -8,9 +8,13 @@ module Simulation.Node.Endpoint.Behavior
        , put
        , liftIO
        , selfIpAddress
+       , sleepSec
+       , sleepMsec
+       , sleepUsec
        ) where
 
 import Control.Applicative (Applicative, (<$>))
+import Control.Concurrent (threadDelay)
 import Control.Monad.Reader (ReaderT, MonadIO, runReaderT, liftIO)
 import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Reader.Class (MonadReader, ask)
@@ -50,4 +54,16 @@ runBehaviorTest action param = do
 -- | Fetch own's ip address.
 selfIpAddress :: Behavior s String
 selfIpAddress = selfIpAddress_ <$> ask
+
+-- | Sleep the requested number of seconds.
+sleepSec :: Int -> Behavior s ()
+sleepSec duration = sleepMsec $ duration * 1000
+
+-- | Sleep the requested number of milliseconds.
+sleepMsec :: Int -> Behavior s ()
+sleepMsec duration = sleepUsec $ duration * 1000
+
+-- | Sleep the requested number if microseconds.
+sleepUsec :: Int -> Behavior s ()
+sleepUsec duration = liftIO $ threadDelay duration
   
