@@ -3,6 +3,7 @@ module EndpointTests
        ( suite
        ) where
 
+import Control.Applicative ((<$>))
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
   ( TVar
@@ -11,7 +12,7 @@ import Control.Concurrent.STM
   , newTVarIO
   , readTVarIO
   )
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
@@ -39,6 +40,8 @@ suite = testGroup "Endpoint tests"
                    shallRemoveABehaviorOnce
         , testCase "Shall run a behavior in its own thread"
                    shallRunInItsOwnThread
+        , testCase "Shall stop when removed"
+                   shallStopWhenRemoved
         ]
 
 data TestState = TestState
@@ -94,6 +97,17 @@ shallRunInItsOwnThread = do
     Just r ->
       assertBool "Counter shall have progressed" =<< isProgressing tvar      
     _      -> assertBool "addBehavior is blocking - not threaded?" False
+
+-- | Test that a behavior thread is stopped when the behavior is
+-- removed from its endpoint.
+shallStopWhenRemoved :: Assertion
+shallStopWhenRemoved = do
+  ep   <- create "127.0.0.1"
+  tvar <- newTVarIO 0
+  r    <- addBehavior (countingAction tvar) ep
+  void $ removeBehavior r ep
+  assertBool "Counter shall not have progressed"
+             =<< not <$> isProgressing tvar
 
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.
