@@ -9,7 +9,7 @@ module Simulation.Node.Endpoint
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Concurrent.Async (Async, async, waitCatch)
+import Control.Concurrent.Async (Async, async, cancel, waitCatch)
 import Control.Concurrent.STM
   ( TVar
   , atomically
@@ -18,6 +18,7 @@ import Control.Concurrent.STM
   , modifyTVar
   , writeTVar
   )
+import Control.Exception (AsyncException (..), handle, throwIO)
 import Control.Monad (void)
 import qualified Data.Map.Strict as Map
 import Simulation.Node.Endpoint.Behavior
@@ -80,24 +81,38 @@ supervise action endpoint = do
                   s -> IO ()
     supervise' action' apiParam initialState = do
       task <- async $ runBehavior action' apiParam initialState
-      void $ waitCatch task
+      terminate task `handle` do
+        void $ waitCatch task
+
+    terminate :: Async () -> AsyncException -> IO ()
+    terminate task e =
+      case e of
+        ThreadKilled -> do
+          cancel task
+          void $ waitCatch task
+        _            -> throwIO e
 
 -- | Remove a behavior from the endpoint.
 removeBehavior :: Receipt -> Endpoint -> IO (Either String ())
 removeBehavior receipt endpoint = do
-  maybeBehavior <- atomically $ do
-    behaviors <- readTVar (behaviorMap endpoint)
-    case Map.lookup receipt behaviors of
-      Just behavior -> do
-        writeTVar (behaviorMap endpoint) (Map.delete receipt behaviors)
-        return $ Just behavior
-      _             -> return Nothing
-
-  case maybeBehavior of
-    Just behavior -> return $ Right ()
-    _             -> return $ Left "No such behavior"
-        
-
+  maybeTask <- maybeAtomicallyDelete
+  case maybeTask of
+    Just task -> do
+      cancel task
+      void $ waitCatch task
+      return $ Right ()
+    _         -> return $ Left "Behavior was not found"
+  where
+    maybeAtomicallyDelete :: IO (Maybe (Async ()))
+    maybeAtomicallyDelete =
+      atomically $ do
+        behaviors <- readTVar (behaviorMap endpoint)
+        case Map.lookup receipt behaviors of
+          entry@(Just _) -> do
+            writeTVar (behaviorMap endpoint) (Map.delete receipt behaviors)
+            return entry
+          _              -> return Nothing
+          
 
   
   
