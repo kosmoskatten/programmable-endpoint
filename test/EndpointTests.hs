@@ -38,6 +38,8 @@ instance BehaviorState TestState where
 emptyAction :: Behavior TestState ()
 emptyAction = return ()
 
+-- | Test that two endpoints, for two different, IP addresses are
+-- unequal.
 shallBeDifferentEndpoints :: Assertion
 shallBeDifferentEndpoints = do
   ep1 <- create "127.0.0.1"
@@ -46,6 +48,7 @@ shallBeDifferentEndpoints = do
   destroy ep1
   destroy ep2
 
+-- | Test that two receipts gotten the same endpoint are unequal.
 shallBeDifferentReceipts :: Assertion
 shallBeDifferentReceipts = do
   ep <- create "127.0.0.1"
@@ -56,6 +59,8 @@ shallBeDifferentReceipts = do
   void $ removeBehavior r2 ep
   destroy ep
 
+-- | Test that a receipt only can be removed once. The second time an
+-- error message shall be returned.
 shallRemoveABehaviorOnce :: Assertion
 shallRemoveABehaviorOnce = do
   ep <- create "127.0.0.1"
