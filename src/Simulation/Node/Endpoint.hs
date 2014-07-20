@@ -15,6 +15,7 @@ import Control.Concurrent.STM
   , newTVarIO
   , readTVar
   , modifyTVar
+  , writeTVar
   )
 import qualified Data.Map.Strict as Map
 import Simulation.Node.Endpoint.Behavior
@@ -59,7 +60,19 @@ addBehavior action endpoint =
 
 -- | Remove a behavior from the endpoint.
 removeBehavior :: Receipt -> Endpoint -> IO (Either String ())
-removeBehavior _ _ = return $ Right ()
+removeBehavior receipt endpoint = do
+  maybeBehavior <- atomically $ do
+    behaviors <- readTVar (behaviorMap endpoint)
+    case Map.lookup receipt behaviors of
+      Just behavior -> do
+        writeTVar (behaviorMap endpoint) (Map.delete receipt behaviors)
+        return $ Just behavior
+      _             -> return Nothing
+
+  case maybeBehavior of
+    Just behavior -> return $ Right ()
+    _             -> return $ Left "No such behavior"
+        
 
 
   
