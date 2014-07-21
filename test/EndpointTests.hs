@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TupleSections #-}
 module EndpointTests
        ( suite
        ) where
@@ -21,6 +21,7 @@ import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
 import Data.Text ()
+import System.Random (randomRIO)
 import System.Timeout (timeout)
 import Simulation.Node.Endpoint
   ( create
@@ -30,6 +31,7 @@ import Simulation.Node.Endpoint
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
+  , get
   , liftIO
   , sleepMsec
   )
@@ -52,11 +54,11 @@ suite = testGroup "Endpoint tests"
                    shallNotRestartWhenTerminated
         ]
 
-data TestState = TestState
+data TestState = TestState {num :: !Int}
   deriving (Eq, Show)
 
 instance BehaviorState TestState where
-  fetch = return ("TestSlogan", TestState)
+  fetch = ("TestSlogan",) <$> (TestState <$> randomRIO (minBound, maxBound))
 
 emptyAction :: Behavior TestState ()
 emptyAction = return ()
@@ -69,7 +71,8 @@ countingAction tvar =
 
 crashingAction :: TMVar Int -> Behavior TestState ()
 crashingAction tmvar = do
-  liftIO $ atomically (putTMVar tmvar 1)
+  num' <- num <$> get
+  liftIO $ atomically (putTMVar tmvar num')
   liftIO $ print (1 `div` 0 :: Int)
 
 terminatingAction :: TMVar () -> Behavior TestState ()
