@@ -67,9 +67,9 @@ countingAction tvar =
     liftIO $ atomically (modifyTVar tvar (+ 1))
     sleepMsec 10
 
-crashingAction :: TMVar () -> Behavior TestState ()
+crashingAction :: TMVar Int -> Behavior TestState ()
 crashingAction tmvar = do
-  liftIO $ atomically (putTMVar tmvar ())
+  liftIO $ atomically (putTMVar tmvar 1)
   liftIO $ print (1 `div` 0 :: Int)
 
 terminatingAction :: TMVar () -> Behavior TestState ()
@@ -135,8 +135,8 @@ shallRestartWhenCrashed = do
   void $ atomically (takeTMVar tmvar) -- First start
   maybeResult <- timeout 100000 $ atomically (takeTMVar tmvar)
   case maybeResult of
-    Just () -> return ()
-    _       -> assertBool "Behavior shall have been restarted" False
+    Just _ -> return ()
+    _      -> assertBool "Behavior shall have been restarted" False
 
 -- | Test that a normally terminating behavior not is restarted by its
 -- supervisor.
