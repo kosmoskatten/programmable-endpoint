@@ -68,7 +68,7 @@ countingAction tvar =
 crashingAction :: TMVar () -> Behavior TestState ()
 crashingAction tmvar = do
   liftIO $ atomically (putTMVar tmvar ())
-  liftIO $ print (1 / 0 :: Float)
+  liftIO $ print (1 `div` 0 :: Int)
   
 -- | Test that two endpoints, for two different, IP addresses are
 -- unequal.

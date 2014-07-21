@@ -82,7 +82,10 @@ supervise action endpoint = do
     supervise' action' apiParam initialState = do
       task <- async $ runBehavior action' apiParam initialState
       terminate task `handle` do
-        void $ waitCatch task
+        status <- waitCatch task
+        case status of
+          Left _ -> supervise' action' apiParam initialState
+          _      -> return ()
 
     terminate :: Async () -> AsyncException -> IO ()
     terminate task e =
