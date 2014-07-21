@@ -7,10 +7,14 @@ import Control.Applicative ((<$>))
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
   ( TVar
+  , TMVar
   , atomically
   , modifyTVar
   , newTVarIO
   , readTVarIO
+  , newEmptyTMVarIO
+  , putTMVar
+  , takeTMVar
   )
 import Control.Monad (forever, void)
 import Test.Framework (Test, testGroup)
@@ -42,6 +46,8 @@ suite = testGroup "Endpoint tests"
                    shallRunInItsOwnThread
         , testCase "Shall stop when removed"
                    shallStopWhenRemoved
+        , testCase "Shall restart when crashed"
+                   shallRestartWhenCrashed
         ]
 
 data TestState = TestState
@@ -59,6 +65,11 @@ countingAction tvar =
     liftIO $ atomically (modifyTVar tvar (+ 1))
     sleepMsec 10
 
+crashingAction :: TMVar () -> Behavior TestState ()
+crashingAction tmvar = do
+  liftIO $ atomically (putTMVar tmvar ())
+  liftIO $ print (1 / 0 :: Float)
+  
 -- | Test that two endpoints, for two different, IP addresses are
 -- unequal.
 shallBeDifferentEndpoints :: Assertion
@@ -108,6 +119,18 @@ shallStopWhenRemoved = do
   void $ removeBehavior r ep
   assertBool "Counter shall not have progressed"
              =<< not <$> isProgressing tvar
+
+-- | Test that a crashing behavior is restarted by its supervisor.
+shallRestartWhenCrashed :: Assertion
+shallRestartWhenCrashed = do
+  ep    <- create "127.0.0.1"
+  tmvar <- newEmptyTMVarIO
+  r     <- addBehavior (crashingAction tmvar) ep
+  void $ atomically (takeTMVar tmvar) -- First start
+  maybeResult <- timeout 100000 $ atomically (takeTMVar tmvar)
+  case maybeResult of
+    Just () -> return ()
+    _       -> assertBool "Behavior shall have been restarted" False
 
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.
