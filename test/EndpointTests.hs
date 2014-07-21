@@ -52,6 +52,8 @@ suite = testGroup "Endpoint tests"
                    shallRestartWhenCrashed
         , testCase "Shall not restart when terminated"
                    shallNotRestartWhenTerminated
+        , testCase "Shall always get the same initialState at restart"
+                   shallGetTheSameInitialStateAtRestart
         ]
 
 data TestState = TestState {num :: !Int}
@@ -153,6 +155,17 @@ shallNotRestartWhenTerminated = do
   case maybeResult of
     Just () -> assertBool "Behavior shall not have been restarted" False
     _       -> return ()
+
+-- | Test that a restarting behavior always get the same initial state
+-- (the example state is randomly generated).
+shallGetTheSameInitialStateAtRestart :: Assertion
+shallGetTheSameInitialStateAtRestart = do
+  ep      <- create "127.0.0.1"
+  tmvar   <- newEmptyTMVarIO
+  r       <- addBehavior (crashingAction tmvar) ep
+  result  <- atomically (takeTMVar tmvar) -- First start
+  result' <- atomically (takeTMVar tmvar) -- Second start
+  assertEqual "Shall be equal" result result'
 
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.
