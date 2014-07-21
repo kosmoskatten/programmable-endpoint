@@ -25,6 +25,7 @@ import System.Random (randomRIO)
 import System.Timeout (timeout)
 import Simulation.Node.Endpoint
   ( create
+  , reset
   , addBehavior
   , removeBehavior
   )
@@ -54,6 +55,8 @@ suite = testGroup "Endpoint tests"
                    shallNotRestartWhenTerminated
         , testCase "Shall always get the same initialState at restart"
                    shallGetTheSameInitialStateAtRestart
+        , testCase "Shall remove all behaviors at reset"
+                   shallRemoveAllBehaviorsAtReset
         ]
 
 data TestState = TestState {num :: !Int}
@@ -166,6 +169,20 @@ shallGetTheSameInitialStateAtRestart = do
   result  <- atomically (takeTMVar tmvar) -- First start
   result' <- atomically (takeTMVar tmvar) -- Second start
   assertEqual "Shall be equal" result result'
+
+-- | Test that behaviors are terminated when an endpoint is reset.
+shallRemoveAllBehaviorsAtReset :: Assertion
+shallRemoveAllBehaviorsAtReset = do
+  ep    <- create "127.0.0.1"
+  tvar1 <- newTVarIO 0
+  tvar2 <- newTVarIO 0
+  void $ addBehavior (countingAction tvar1) ep
+  void $ addBehavior (countingAction tvar2) ep
+  reset ep
+  assertBool "Counter shall not have progressed"
+             =<< not <$> isProgressing tvar1
+  assertBool "Counter shall not have progressed"
+             =<< not <$> isProgressing tvar2
 
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.

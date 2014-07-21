@@ -48,9 +48,11 @@ create :: IpAddress -> IO Endpoint
 create theIpAddress =
   Endpoint theIpAddress <$> newTVarIO 1 <*> newTVarIO Map.empty
 
--- | Reset an endpoint instance.
+-- | Reset an endpoint instance by removing all behaviors.
 reset :: Endpoint -> IO ()
-reset _ = return ()
+reset endpoint = do
+  behaviorList <- Map.toList <$> atomically (readTVar (behaviorMap endpoint))
+  mapM_ (flip removeBehavior endpoint . fst) behaviorList
 
 -- | Add a behavior to the endpoint.
 addBehavior :: BehaviorState s => Behavior s () -> Endpoint -> IO Receipt
