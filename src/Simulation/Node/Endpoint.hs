@@ -3,7 +3,7 @@ module Simulation.Node.Endpoint
        , Receipt
        , IpAddress
        , create
-       , destroy
+       , reset
        , addBehavior
        , removeBehavior
        ) where
@@ -48,9 +48,9 @@ create :: IpAddress -> IO Endpoint
 create theIpAddress =
   Endpoint theIpAddress <$> newTVarIO 1 <*> newTVarIO Map.empty
 
--- | Destroy an endpoint instance.
-destroy :: Endpoint -> IO ()
-destroy _ = return ()
+-- | Reset an endpoint instance.
+reset :: Endpoint -> IO ()
+reset _ = return ()
 
 -- | Add a behavior to the endpoint.
 addBehavior :: BehaviorState s => Behavior s () -> Endpoint -> IO Receipt
