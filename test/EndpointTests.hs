@@ -48,6 +48,8 @@ suite = testGroup "Endpoint tests"
                    shallStopWhenRemoved
         , testCase "Shall restart when crashed"
                    shallRestartWhenCrashed
+        , testCase "Shall not restart when terminated"
+                   shallNotRestartWhenTerminated
         ]
 
 data TestState = TestState
@@ -69,7 +71,11 @@ crashingAction :: TMVar () -> Behavior TestState ()
 crashingAction tmvar = do
   liftIO $ atomically (putTMVar tmvar ())
   liftIO $ print (1 `div` 0 :: Int)
-  
+
+terminatingAction :: TMVar () -> Behavior TestState ()
+terminatingAction tmvar =
+  liftIO $ atomically (putTMVar tmvar ())
+
 -- | Test that two endpoints, for two different, IP addresses are
 -- unequal.
 shallBeDifferentEndpoints :: Assertion
@@ -131,6 +137,19 @@ shallRestartWhenCrashed = do
   case maybeResult of
     Just () -> return ()
     _       -> assertBool "Behavior shall have been restarted" False
+
+-- | Test that a normally terminating behavior not is restarted by its
+-- supervisor.
+shallNotRestartWhenTerminated :: Assertion
+shallNotRestartWhenTerminated = do
+  ep    <- create "127.0.0.1"
+  tmvar <- newEmptyTMVarIO
+  r     <- addBehavior (terminatingAction tmvar) ep
+  void $ atomically (takeTMVar tmvar)
+  maybeResult <- timeout 100000 $ atomically (takeTMVar tmvar)
+  case maybeResult of
+    Just () -> assertBool "Behavior shall not have been restarted" False
+    _       -> return ()
 
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.
