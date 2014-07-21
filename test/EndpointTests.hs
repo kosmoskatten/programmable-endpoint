@@ -116,7 +116,7 @@ shallRunInItsOwnThread = do
   tvar <- newTVarIO 0
   maybeR <- timeout 100000 $ addBehavior (countingAction tvar) ep
   case maybeR of
-    Just r ->
+    Just _ ->
       assertBool "Counter shall have progressed" =<< isProgressing tvar      
     _      -> assertBool "addBehavior is blocking - not threaded?" False
 
@@ -136,7 +136,7 @@ shallRestartWhenCrashed :: Assertion
 shallRestartWhenCrashed = do
   ep    <- create "127.0.0.1"
   tmvar <- newEmptyTMVarIO
-  r     <- addBehavior (crashingAction tmvar) ep
+  void $ addBehavior (crashingAction tmvar) ep
   void $ atomically (takeTMVar tmvar) -- First start
   maybeResult <- timeout 100000 $ atomically (takeTMVar tmvar)
   case maybeResult of
@@ -149,7 +149,7 @@ shallNotRestartWhenTerminated :: Assertion
 shallNotRestartWhenTerminated = do
   ep    <- create "127.0.0.1"
   tmvar <- newEmptyTMVarIO
-  r     <- addBehavior (terminatingAction tmvar) ep
+  void $ addBehavior (terminatingAction tmvar) ep
   void $ atomically (takeTMVar tmvar)
   maybeResult <- timeout 100000 $ atomically (takeTMVar tmvar)
   case maybeResult of
@@ -162,7 +162,7 @@ shallGetTheSameInitialStateAtRestart :: Assertion
 shallGetTheSameInitialStateAtRestart = do
   ep      <- create "127.0.0.1"
   tmvar   <- newEmptyTMVarIO
-  r       <- addBehavior (crashingAction tmvar) ep
+  void $ addBehavior (crashingAction tmvar) ep
   result  <- atomically (takeTMVar tmvar) -- First start
   result' <- atomically (takeTMVar tmvar) -- Second start
   assertEqual "Shall be equal" result result'

@@ -68,7 +68,9 @@ addBehavior action endpoint = do
         modifyTVar behaviors (Map.insert receipt task)
         return receipt
 
--- | Supervise a behavior.
+-- | Supervise a behavior. If the behavior is crashed the behavior
+-- shall be restarted by the supervisor. If the behavior is normally
+-- terminated no action is taken.
 supervise :: BehaviorState s => Behavior s () -> Endpoint -> IO ()
 supervise action endpoint = do
   let apiParam = BehaviorApiParam (ipAddress endpoint)
@@ -87,6 +89,8 @@ supervise action endpoint = do
           Left _ -> supervise' action' apiParam initialState
           _      -> return ()
 
+    -- | Terminate is called in case the supervisor is cancelled. This
+    -- to make sure that the behavior is properly terminated.
     terminate :: Async () -> AsyncException -> IO ()
     terminate task e =
       case e of
