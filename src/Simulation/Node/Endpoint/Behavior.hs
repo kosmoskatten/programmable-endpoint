@@ -23,15 +23,13 @@ import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
 
--- | The BehaviorT monad transformer; r is the api parameter type, s
+-- | The Behavior monad transformer; r is the api parameter type, s
 -- is the user supplied behavior state and a is the reply type of the
 -- action.
-newtype BehaviorT r s a =
-  BehaviorT { extractBehaviorT :: ReaderT r (StateT s IO) a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadReader r, MonadState s)
-
--- | Type shortcut where the type r is forced to be of kind BehaviorApiParam.
-type Behavior = BehaviorT BehaviorApiParam
+newtype Behavior s a =
+  BehaviorT { extractBehaviorT :: ReaderT BehaviorApiParam (StateT s IO) a }
+  deriving ( Functor, Applicative, Monad, MonadIO
+           , MonadReader BehaviorApiParam, MonadState s )
 
 -- | Record with api parameters for the execution of the Behavior monad.
 data BehaviorApiParam =
