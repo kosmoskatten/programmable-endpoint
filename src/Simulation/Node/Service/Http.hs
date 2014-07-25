@@ -2,6 +2,7 @@
 module Simulation.Node.Service.Http
        ( HttpService
        , Routes (..)
+       , activate
        , as
        , toSnapRoutes
        , selfStore
@@ -37,6 +38,14 @@ newtype Routes a = Routes [ (BS.ByteString, HttpService a) ]
 
 -- | A type describing an adjusted route mapping, ready to install.
 newtype Installment a = Installment [ (BS.ByteString, HttpService a, FilePath) ]
+
+-- | Activate the http services, at the given port, in the current
+-- thread.
+activate :: Int -> [Installment ()] -> IO ()
+activate port services = do
+  let config = setPort port defaultConfig
+      routes = toSnapRoutes services
+  httpServe config $ route routes
 
 -- | Convert a set of routes and a prefix to a proper installment.
 as :: Routes a -> BS.ByteString -> Installment a
