@@ -36,30 +36,30 @@ data HttpServiceApiParam =
 -- a handler for the request.
 newtype Routes a = Routes [ (BS.ByteString, HttpService a) ]
 
--- | A type describing an adjusted route mapping, ready to install.
-newtype Installment a = Installment [ (BS.ByteString, HttpService a, FilePath) ]
+-- | A type describing a prepared service, ready to install.
+newtype Service a = Service [ (BS.ByteString, HttpService a, FilePath) ]
 
 -- | Activate the http services, at the given port, in the current
 -- thread.
-activate :: Int -> [Installment ()] -> IO ()
+activate :: Int -> [Service ()] -> IO ()
 activate port services = do
   let config = setPort port defaultConfig
       routes = toSnapRoutes services
   httpServe config $ route routes
 
--- | Convert a set of routes and a prefix to a proper installment.
-as :: Routes a -> BS.ByteString -> Installment a
+-- | Convert a set of routes and a prefix to a proper service.
+as :: Routes a -> BS.ByteString -> Service a
 as (Routes xs) prefix =
   let prefix' = prefix `BS.snoc` '/'
-  in Installment $
+  in Service $
      map (\(url, action) ->
            (prefix' `BS.append` url, action, BS.unpack prefix')) xs
 
 -- | Convert a list of installments to a list of proper snap
 -- routes. The HttpService monad will be evaluated down to the snap
 -- monad in this step.
-toSnapRoutes :: [Installment a] -> [(BS.ByteString, Snap a)]
-toSnapRoutes xs = concat $ map (\(Installment xs') -> map toSnap xs') xs
+toSnapRoutes :: [Service a] -> [(BS.ByteString, Snap a)]
+toSnapRoutes xs = concat $ map (\(Service xs') -> map toSnap xs') xs
 
 -- | Fetch own's self store position in the file system (relative to
 -- current working directory).
