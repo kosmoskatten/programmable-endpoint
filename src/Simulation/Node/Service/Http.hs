@@ -6,7 +6,7 @@ module Simulation.Node.Service.Http
        , as
        , toSnapRoutes
        , selfStore
-       , module Snap.Test
+       , module Snap.Core
        ) where
 
 import Control.Applicative (Applicative, Alternative, (<$>))

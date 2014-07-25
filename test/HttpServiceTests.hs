@@ -6,6 +6,7 @@ module HttpServiceTests
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
+import Snap.Test
 import Simulation.Node.Service.Http
 
 suite :: Test.Framework.Test
