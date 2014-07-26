@@ -19,6 +19,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Simulation.Node.Endpoint
                        , Simulation.Node.Endpoint.Behavior
+                       , Simulation.Node.Endpoint.Behavior.Browser
                        , Simulation.Node.Service.Http
   other-modules:       Simulation.Node.Endpoint.Internal.Relations
   -- other-extensions:    
@@ -34,6 +35,7 @@ library
                        , snap-server >= 0.9
                        , filepath >= 1.3
                        , tagsoup >= 0.13
+                       , http-streams >= 0.7
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall
