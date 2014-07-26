@@ -16,6 +16,8 @@ import Simulation.Node.Endpoint.Behavior
   , get
   , put
   , selfIpAddress
+  , webGateway
+  , webPort
   )
 
 suite :: Test.Framework.Test
@@ -32,6 +34,10 @@ suite = testGroup "Behavior tests"
                    initialStateShallBeReturnedBackAsValue
         , testCase "Api selfIpAddress shall return api param value"
                    selfIpAddressShallReturnApiParamValue
+        , testCase "Api webGateway shall return api param value"
+                   webGatewayShallReturnApiParamValue
+        , testCase "Api webPort shall return api param value"
+                   webPortShallReturnApiParamValue
         ]
 
 data TestState = InitialState | SteppedState
@@ -52,6 +58,12 @@ getStateAction = get
 
 selfIpAddress' :: Behavior TestState String
 selfIpAddress' = selfIpAddress
+
+webGateway' :: Behavior TestState Hostname
+webGateway' = webGateway
+
+webPort' :: Behavior TestState Port
+webPort' = webPort
 
 -- | Unit test with the empty action to make sure that the slogan is
 -- retured back from runBehaviorTest.
@@ -99,6 +111,20 @@ selfIpAddressShallReturnApiParamValue = do
   (_, ipAddress, _) <- runBehaviorTest selfIpAddress' makeApiParam
   assertEqual "Shall be equal"
               localhost ipAddress
+
+-- | Test that webGateway return the value from api params.
+webGatewayShallReturnApiParamValue :: Assertion
+webGatewayShallReturnApiParamValue = do
+  (_, ipGateway, _) <- runBehaviorTest webGateway' makeApiParam
+  assertEqual "Shall be equal"
+              gateway ipGateway
+
+-- | Test that webPort return the value from api params.
+webPortShallReturnApiParamValue :: Assertion
+webPortShallReturnApiParamValue = do
+  (_, gatewayPort, _) <- runBehaviorTest webPort' makeApiParam
+  assertEqual "Shall be equal"
+              port gatewayPort
 
 makeApiParam :: BehaviorApiParam
 makeApiParam = BehaviorApiParam localhost gateway port

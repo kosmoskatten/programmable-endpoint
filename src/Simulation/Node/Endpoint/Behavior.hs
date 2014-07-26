@@ -11,6 +11,8 @@ module Simulation.Node.Endpoint.Behavior
        , put
        , liftIO
        , selfIpAddress
+       , webGateway
+       , webPort
        , sleepSec
        , sleepMsec
        , sleepUsec
@@ -66,6 +68,14 @@ runBehaviorTest action param = do
 -- | Fetch own's ip address.
 selfIpAddress :: BehaviorState s => Behavior s String
 selfIpAddress = selfIpAddress_ <$> ask
+
+-- | Fetch the gateway ip address to use.
+webGateway :: BehaviorState s => Behavior s Hostname
+webGateway = webGateway_ <$> ask
+
+-- | Fetch the gateway port to use.
+webPort :: BehaviorState s => Behavior s Port
+webPort = webPort_ <$> ask
 
 -- | Sleep the requested number of seconds.
 sleepSec :: BehaviorState s => Int -> Behavior s ()
