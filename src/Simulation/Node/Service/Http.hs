@@ -16,7 +16,6 @@ import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.CatchIO (MonadCatchIO)
 import qualified Data.ByteString.Char8 as BS
 import Snap.Core
-import Snap.Test
 import Snap.Http.Server
 import System.FilePath ((</>))
 
