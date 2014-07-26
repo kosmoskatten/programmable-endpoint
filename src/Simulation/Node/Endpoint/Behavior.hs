@@ -59,18 +59,18 @@ runBehaviorTest action param = do
   return (slogan, result, state)
 
 -- | Fetch own's ip address.
-selfIpAddress :: Behavior s String
+selfIpAddress :: BehaviorState s => Behavior s String
 selfIpAddress = selfIpAddress_ <$> ask
 
 -- | Sleep the requested number of seconds.
-sleepSec :: Int -> Behavior s ()
+sleepSec :: BehaviorState s => Int -> Behavior s ()
 sleepSec duration = sleepMsec $ duration * 1000
 
 -- | Sleep the requested number of milliseconds.
-sleepMsec :: Int -> Behavior s ()
+sleepMsec :: BehaviorState s => Int -> Behavior s ()
 sleepMsec duration = sleepUsec $ duration * 1000
 
 -- | Sleep the requested number if microseconds.
-sleepUsec :: Int -> Behavior s ()
+sleepUsec :: BehaviorState s => Int -> Behavior s ()
 sleepUsec duration = liftIO $ threadDelay duration
   
