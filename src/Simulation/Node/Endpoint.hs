@@ -25,6 +25,8 @@ import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
   , BehaviorApiParam (..)
+  , Hostname
+  , Port
   , runBehavior
   )
 
@@ -34,6 +36,8 @@ type BehaviorMap = Map.Map Receipt (Async ())
 -- | An endpoint instance descriptor.
 data Endpoint =
   Endpoint { ipAddress      :: !IpAddress
+           , webGateway     :: !Hostname
+           , webPort        :: !Port
            , receiptCounter :: TVar Int
            , behaviorMap    :: TVar BehaviorMap
            }
@@ -44,9 +48,9 @@ newtype Receipt = Receipt Int
   deriving (Eq, Ord)
 
 -- | Create an endpoint instance.
-create :: IpAddress -> IO Endpoint
-create theIpAddress =
-  Endpoint theIpAddress <$> newTVarIO 1 <*> newTVarIO Map.empty
+create :: IpAddress -> Hostname -> Port -> IO Endpoint
+create ip gateway port =
+  Endpoint ip gateway port <$> newTVarIO 1 <*> newTVarIO Map.empty
 
 -- | Reset an endpoint instance by removing all behaviors.
 reset :: Endpoint -> IO ()
@@ -76,6 +80,8 @@ addBehavior action endpoint = do
 supervise :: BehaviorState s => Behavior s () -> Endpoint -> IO ()
 supervise action endpoint = do
   let apiParam = BehaviorApiParam (ipAddress endpoint)
+                                  (webGateway endpoint)
+                                  (webPort endpoint)
   (_, initialState) <- fetch
   supervise' action apiParam initialState
   where

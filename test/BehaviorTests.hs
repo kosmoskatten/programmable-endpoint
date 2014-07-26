@@ -10,6 +10,8 @@ import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorApiParam (..)
   , BehaviorState (..)
+  , Hostname
+  , Port
   , runBehaviorTest
   , get
   , put
@@ -99,7 +101,13 @@ selfIpAddressShallReturnApiParamValue = do
               localhost ipAddress
 
 makeApiParam :: BehaviorApiParam
-makeApiParam = BehaviorApiParam localhost
+makeApiParam = BehaviorApiParam localhost gateway port
       
 localhost :: String
 localhost = "127.0.0.1"
+
+gateway :: Hostname
+gateway = "192.168.1.100"
+
+port :: Port
+port = 8888

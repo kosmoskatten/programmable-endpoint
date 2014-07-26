@@ -3,6 +3,8 @@ module Simulation.Node.Endpoint.Behavior
        ( Behavior
        , BehaviorApiParam (..)
        , BehaviorState (..)
+       , Hostname
+       , Port
        , runBehavior
        , runBehaviorTest
        , get
@@ -22,6 +24,7 @@ import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
+import Network.Http.Client (Hostname, Port)
 
 -- | The Behavior monad; s is the user supplied behavior
 -- state and a is the reply type of the action.
@@ -32,7 +35,9 @@ newtype Behavior s a =
 
 -- | Record with api parameters for the execution of the Behavior monad.
 data BehaviorApiParam =
-  BehaviorApiParam { selfIpAddress_ :: !String }
+  BehaviorApiParam { selfIpAddress_ :: !String
+                   , webGateway_    :: !Hostname
+                   , webPort_       :: !Port }
   deriving Show
 
 -- | Typeclass for the user supplied behavior state.

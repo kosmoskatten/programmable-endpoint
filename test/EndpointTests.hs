@@ -32,6 +32,8 @@ import Simulation.Node.Endpoint
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
+  , Hostname
+  , Port
   , get
   , liftIO
   , sleepMsec
@@ -88,14 +90,14 @@ terminatingAction tmvar =
 -- unequal.
 shallBeDifferentEndpoints :: Assertion
 shallBeDifferentEndpoints = do
-  ep1 <- create "127.0.0.1"
-  ep2 <- create "127.0.0.2"
+  ep1 <- create localhost gateway port
+  ep2 <- create "127.0.0.2" gateway port
   assertBool "Shall be different" $ ep1 /= ep2
 
 -- | Test that two receipts gotten the same endpoint are unequal.
 shallBeDifferentReceipts :: Assertion
 shallBeDifferentReceipts = do
-  ep <- create "127.0.0.1"
+  ep <- create localhost gateway port
   r1 <- addBehavior emptyAction ep
   r2 <- addBehavior emptyAction ep
   assertBool "Shall be different" $ r1 /= r2
@@ -104,7 +106,7 @@ shallBeDifferentReceipts = do
 -- error message shall be returned.
 shallRemoveABehaviorOnce :: Assertion
 shallRemoveABehaviorOnce = do
-  ep <- create "127.0.0.1"
+  ep <- create localhost gateway port
   r  <- addBehavior emptyAction ep
   resultSuccess <- removeBehavior r ep
   resultFailure <- removeBehavior r ep
@@ -115,7 +117,7 @@ shallRemoveABehaviorOnce = do
 -- | Test that an added behavior run in its own thread.
 shallRunInItsOwnThread :: Assertion
 shallRunInItsOwnThread = do
-  ep <- create "127.0.0.1"
+  ep <- create localhost gateway port
   tvar <- newTVarIO 0
   maybeR <- timeout 100000 $ addBehavior (countingAction tvar) ep
   case maybeR of
@@ -127,7 +129,7 @@ shallRunInItsOwnThread = do
 -- removed from its endpoint.
 shallStopWhenRemoved :: Assertion
 shallStopWhenRemoved = do
-  ep   <- create "127.0.0.1"
+  ep   <- create localhost gateway port
   tvar <- newTVarIO 0
   r    <- addBehavior (countingAction tvar) ep
   void $ removeBehavior r ep
@@ -137,7 +139,7 @@ shallStopWhenRemoved = do
 -- | Test that a crashing behavior is restarted by its supervisor.
 shallRestartWhenCrashed :: Assertion
 shallRestartWhenCrashed = do
-  ep    <- create "127.0.0.1"
+  ep    <- create localhost gateway port
   tmvar <- newEmptyTMVarIO
   void $ addBehavior (crashingAction tmvar) ep
   void $ atomically (takeTMVar tmvar) -- First start
@@ -150,7 +152,7 @@ shallRestartWhenCrashed = do
 -- supervisor.
 shallNotRestartWhenTerminated :: Assertion
 shallNotRestartWhenTerminated = do
-  ep    <- create "127.0.0.1"
+  ep    <- create localhost gateway port
   tmvar <- newEmptyTMVarIO
   void $ addBehavior (terminatingAction tmvar) ep
   void $ atomically (takeTMVar tmvar)
@@ -163,7 +165,7 @@ shallNotRestartWhenTerminated = do
 -- (the example state is randomly generated).
 shallGetTheSameInitialStateAtRestart :: Assertion
 shallGetTheSameInitialStateAtRestart = do
-  ep      <- create "127.0.0.1"
+  ep      <- create localhost gateway port
   tmvar   <- newEmptyTMVarIO
   void $ addBehavior (crashingAction tmvar) ep
   result  <- atomically (takeTMVar tmvar) -- First start
@@ -173,7 +175,7 @@ shallGetTheSameInitialStateAtRestart = do
 -- | Test that behaviors are terminated when an endpoint is reset.
 shallRemoveAllBehaviorsAtReset :: Assertion
 shallRemoveAllBehaviorsAtReset = do
-  ep    <- create "127.0.0.1"
+  ep    <- create localhost gateway port
   tvar1 <- newTVarIO 0
   tvar2 <- newTVarIO 0
   void $ addBehavior (countingAction tvar1) ep
@@ -192,3 +194,12 @@ isProgressing tvar = do
   threadDelay 100000
   sample' <- readTVarIO tvar
   return $ sample' > sample
+
+localhost :: String
+localhost = "127.0.0.1"
+
+gateway :: Hostname
+gateway = "192.168.100.1"
+
+port :: Port
+port = 8888
