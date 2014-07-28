@@ -13,6 +13,8 @@ suite :: Test.Framework.Test
 suite = testGroup "HttpService tests"
         [ testCase "Service specific selfStore paths shall be returned back"
                    selfStoreShallReturnServiceSpecificPath
+        , testCase "Service specific basePrefix shall be returned back"
+                   basePrefixShallReturnServiceSpecificPath
         ]
 
 -- | Test that a selfStore specific for the service is returned
@@ -35,3 +37,19 @@ selfStoreShallReturnServiceSpecificPath = do
               , "httpServices/service2/" ]
               results
 
+-- | Test that a basePrefix specific for the service is returned
+-- back. The basePrefix should be like '/foo/' for a service called
+-- 'foo'.
+basePrefixShallReturnServiceSpecificPath :: Assertion
+basePrefixShallReturnServiceSpecificPath = do
+  let snaps = map snd $
+        toSnapRoutes
+        [ Routes [ ("url1", basePrefix)
+                 , ("url2", basePrefix) ] `as` "service1"
+        , Routes [ ("url1", basePrefix)
+                 , ("url2", basePrefix) ] `as` "service2"
+        ]
+  results <- mapM (evalHandler $ setRequestType GetRequest) snaps
+  assertEqual "Shall be equal"
+              [ "/service1/", "/service1/", "/service2/", "/service2/" ]
+              results

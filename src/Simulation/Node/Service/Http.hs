@@ -6,6 +6,7 @@ module Simulation.Node.Service.Http
        , as
        , toSnapRoutes
        , selfStore
+       , basePrefix
        , module Snap.Core
        ) where
 
@@ -28,7 +29,8 @@ newtype HttpService a =
 
 -- | Record with api parameters for the execution of the HttpService monad.
 data HttpServiceApiParam =
-  HttpServiceApiParam { selfStore_ :: !FilePath }
+  HttpServiceApiParam { selfStore_  :: !FilePath
+                      , basePrefix_ :: !String}
   deriving Show
 
 -- | A type describing a service's route mapping between an url and
@@ -36,7 +38,7 @@ data HttpServiceApiParam =
 newtype Routes a = Routes [ (BS.ByteString, HttpService a) ]
 
 -- | A type describing a prepared service, ready to install.
-newtype Service a = Service [ (BS.ByteString, HttpService a, FilePath) ]
+newtype Service a = Service [ (BS.ByteString, HttpService a, String) ]
 
 -- | Activate the http services, at the given port, in the current
 -- thread.
@@ -61,16 +63,25 @@ toSnapRoutes :: [Service a] -> [(BS.ByteString, Snap a)]
 toSnapRoutes xs = concat $ map (\(Service xs') -> map toSnap xs') xs
 
 -- | Fetch own's self store position in the file system (relative to
--- current working directory).
+-- current working directory). E.g. if the service's name is foo the
+-- selfStore will return httpServices/foo/ as the directory where
+-- static data for the service can be stored.
 selfStore :: HttpService FilePath
 selfStore = selfStore_ <$> ask
+
+-- | Fetch own's base prefix url. This is to be used for any kind of
+-- linking to resources inside the own service to that the service
+-- name always become the prefix in the url.
+basePrefix :: HttpService String
+basePrefix = basePrefix_ <$> ask
 
 -- | Run an HttpService in the Snap monad.
 runHttpService :: HttpService a -> HttpServiceApiParam -> Snap a
 runHttpService action param = runReaderT (extractHttpService action) param
 
-toSnap :: (BS.ByteString, HttpService a, FilePath) -> (BS.ByteString, Snap a)
-toSnap (url, action, filePath) = (url, runHttpService action makeParam)
+toSnap :: (BS.ByteString, HttpService a, String) -> (BS.ByteString, Snap a)
+toSnap (url, action, prefix) = (url, runHttpService action makeParam)
   where
     makeParam :: HttpServiceApiParam
-    makeParam = HttpServiceApiParam $ "httpServices" </> filePath
+    makeParam = HttpServiceApiParam ("httpServices" </> prefix)
+                                    ('/':prefix)
