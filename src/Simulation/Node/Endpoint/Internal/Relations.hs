@@ -4,6 +4,7 @@ module Simulation.Node.Endpoint.Internal.Relations
        , relations
        ) where
 
+import Data.List (foldl')
 import qualified Data.ByteString.Char8 as BS
 import Text.HTML.TagSoup (Tag (..))
 
@@ -19,20 +20,20 @@ emptyRelations = Relations [] [] [] []
               
 -- | From the lists of tags, extract relations document.
 relations :: [Tag BS.ByteString] -> Relations
-relations = foldr extract emptyRelations
+relations = foldl' extract emptyRelations
   where
-    extract :: Tag BS.ByteString -> Relations -> Relations
-    extract (TagOpen "a" attr) acc      =
+    extract :: Relations -> Tag BS.ByteString -> Relations
+    extract acc (TagOpen "a" attr)      =
       maybe acc (\r -> acc {links = (r:links acc)}) $ lookup "href" attr
 
-    extract (TagOpen "img" attr) acc    =
+    extract acc (TagOpen "img" attr)    =
       maybe acc (\r -> acc {images = (r:images acc)}) $ lookup "src" attr
 
-    extract (TagOpen "script" attr) acc =
+    extract acc (TagOpen "script" attr) =
       maybe acc (\r -> acc {scripts = (r:scripts acc)}) $ lookup "src" attr
 
-    extract (TagOpen "link" attr) acc   =
+    extract acc (TagOpen "link" attr)   =
       maybe acc (\r -> acc {stylesheets = (r:stylesheets acc)}) $
         lookup "href" attr
         
-    extract _ acc                       = acc
+    extract  acc _                      = acc
