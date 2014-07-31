@@ -16,6 +16,7 @@ module Simulation.Node.Endpoint.Behavior
        , sleepSec
        , sleepMsec
        , sleepUsec
+       , updateBytesReceived         
        ) where
 
 import Control.Applicative (Applicative, (<$>))
@@ -27,6 +28,10 @@ import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
 import Network.Http.Client (Hostname, Port)
+import Simulation.Node.Statistics
+  ( Statistics
+  , atomically
+  , addBytesReceived )
 
 -- | The Behavior monad; s is the user supplied behavior
 -- state and a is the reply type of the action.
@@ -39,7 +44,8 @@ newtype Behavior s a =
 data BehaviorApiParam =
   BehaviorApiParam { selfIpAddress_ :: !String
                    , webGateway_    :: !Hostname
-                   , webPort_       :: !Port }
+                   , webPort_       :: !Port
+                   , counters_      :: ![Statistics] }
   deriving Show
 
 -- | Typeclass for the user supplied behavior state.
@@ -89,3 +95,8 @@ sleepMsec duration = sleepUsec $ duration * 1000
 sleepUsec :: BehaviorState s => Int -> Behavior s ()
 sleepUsec duration = liftIO $ threadDelay duration
   
+-- | Update the counters with the amount of bytes received.
+updateBytesReceived :: BehaviorState s => Int -> Behavior s ()
+updateBytesReceived amount = do
+  counters <- counters_ <$> ask
+  liftIO $ (atomically $ mapM_ (addBytesReceived amount) counters)

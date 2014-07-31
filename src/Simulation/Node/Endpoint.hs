@@ -82,6 +82,7 @@ supervise action endpoint = do
   let apiParam = BehaviorApiParam (ipAddress endpoint)
                                   (webGateway endpoint)
                                   (webPort endpoint)
+                                  []
   (_, initialState) <- fetch
   supervise' action apiParam initialState
   where

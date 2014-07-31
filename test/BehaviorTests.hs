@@ -127,7 +127,7 @@ webPortShallReturnApiParamValue = do
               port gatewayPort
 
 makeApiParam :: BehaviorApiParam
-makeApiParam = BehaviorApiParam localhost gateway port
+makeApiParam = BehaviorApiParam localhost gateway port []
       
 localhost :: String
 localhost = "127.0.0.1"
