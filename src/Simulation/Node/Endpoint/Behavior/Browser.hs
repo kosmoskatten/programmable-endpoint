@@ -12,17 +12,14 @@ import Simulation.Node.Endpoint.Behavior
 import Simulation.Node.Endpoint.Internal.Relations
 import qualified System.IO.Streams as Streams
 import System.Random (randomRIO)
-import Text.HTML.TagSoup (parseTags)
-import Text.Printf
+import Text.HTML.TagSoup.Fast (parseTags)
 
 browsePage :: BehaviorState s => BS.ByteString -> Behavior s [BS.ByteString]
 browsePage resource = do
   gateway      <- webGateway
   port         <- webPort
-  (page, size) <- liftIO $ getWithHandler gateway port contentAndSize resource
-  liftIO $ printf "Size received: %d\n" size
+  (page, _)    <- liftIO $ getWithHandler gateway port contentAndSize resource
   let relations' = relations $ parseTags page
-  liftIO $ printf " -> %s\n" (show $ images relations')
   void $ liftIO (mapConcurrently (getWithHandler gateway port sizeH)
                                  (images relations'))
   return $ links relations'
