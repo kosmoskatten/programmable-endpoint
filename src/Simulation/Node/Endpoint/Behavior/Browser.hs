@@ -5,7 +5,6 @@ module Simulation.Node.Endpoint.Behavior.Browser
        ) where
 
 import Control.Concurrent.Async (mapConcurrently)
-import Control.Monad (void)
 import qualified Data.ByteString.Char8 as BS
 import Network.Http.Client
 import Simulation.Node.Endpoint.Behavior
@@ -18,10 +17,11 @@ browsePage :: BehaviorState s => BS.ByteString -> Behavior s [BS.ByteString]
 browsePage resource = do
   gateway      <- webGateway
   port         <- webPort
-  (page, _)    <- liftIO $ getWithHandler gateway port contentAndSize resource
+  (page, size) <- liftIO $ getWithHandler gateway port contentAndSize resource
   let relations' = relations $ parseTags page
-  void $ liftIO (mapConcurrently (getWithHandler gateway port sizeH)
-                                 (images relations'))
+  sizes <- liftIO (mapConcurrently (getWithHandler gateway port sizeH)
+                                   (images relations'))
+  updateBytesReceived $ size + sum sizes
   return $ links relations'
 
 randomLink :: BehaviorState s => [BS.ByteString] -> Behavior s BS.ByteString

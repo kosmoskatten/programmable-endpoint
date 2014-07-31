@@ -18,11 +18,12 @@ import Control.Concurrent.STM
 import GHC.Int
 
 newtype Statistics = Statistics (TVar Counters)
+  deriving Eq
 
 data Counters =
   Counters { bytesReceived :: !Int64
            , bytesSent     :: !Int64 }
-  deriving Show
+  deriving (Eq, Show)
 
 create :: IO Statistics
 create = Statistics `fmap` newTVarIO empty

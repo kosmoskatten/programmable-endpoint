@@ -1,5 +1,5 @@
 module Simulation.Node.Endpoint
-       ( Endpoint
+       ( Endpoint (statistics)
        , Receipt
        , IpAddress
        , create
@@ -21,6 +21,7 @@ import Control.Concurrent.STM
 import Control.Exception (AsyncException (..), handle, throwIO)
 import Control.Monad (void)
 import qualified Data.Map.Strict as Map
+import qualified Simulation.Node.Statistics as Statistics
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
@@ -40,6 +41,7 @@ data Endpoint =
            , webPort        :: !Port
            , receiptCounter :: TVar Int
            , behaviorMap    :: TVar BehaviorMap
+           , statistics     :: !Statistics.Statistics
            }
   deriving Eq
 
@@ -50,7 +52,9 @@ newtype Receipt = Receipt Int
 -- | Create an endpoint instance.
 create :: IpAddress -> Hostname -> Port -> IO Endpoint
 create ip gateway port =
-  Endpoint ip gateway port <$> newTVarIO 1 <*> newTVarIO Map.empty
+  Endpoint ip gateway port <$> newTVarIO 1
+                           <*> newTVarIO Map.empty
+                           <*> Statistics.create
 
 -- | Reset an endpoint instance by removing all behaviors.
 reset :: Endpoint -> IO ()
@@ -79,10 +83,11 @@ addBehavior action endpoint = do
 -- terminated no action is taken.
 supervise :: BehaviorState s => Behavior s () -> Endpoint -> IO ()
 supervise action endpoint = do
+  behaviorStatistics <- Statistics.create
   let apiParam = BehaviorApiParam (ipAddress endpoint)
                                   (webGateway endpoint)
                                   (webPort endpoint)
-                                  []
+                                  [statistics endpoint, behaviorStatistics]
   (_, initialState) <- fetch
   supervise' action apiParam initialState
   where
