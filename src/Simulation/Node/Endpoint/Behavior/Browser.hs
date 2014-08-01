@@ -4,40 +4,43 @@ module Simulation.Node.Endpoint.Behavior.Browser
        , randomLink
        ) where
 
+import Control.DeepSeq (($!!))
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
 import qualified Data.ByteString.Char8 as BS
 import Network.Http.Client
 import Simulation.Node.Endpoint.Behavior
 import Simulation.Node.Endpoint.Internal.Relations
 import qualified System.IO.Streams as Streams
 import System.Random (randomRIO)
-import Text.HTML.TagSoup.Fast (parseTags)
+import Text.HTML.TagSoup.Fast (parseTagsT)
 
-browsePage :: BehaviorState s => BS.ByteString -> Behavior s [BS.ByteString]
+browsePage :: BehaviorState s => Text -> Behavior s [Text]
 browsePage resource = do
   gateway           <- webGateway
   port              <- webPort
   (relations', size) <- liftIO $ processContent gateway port resource
   updateBytesReceived size
-  return $ links relations'
+  return $!! links relations'
 
-processContent :: Hostname -> Port -> BS.ByteString -> IO (Relations, Int)
+processContent :: Hostname -> Port -> Text -> IO (Relations, Int)
 processContent hostname port resource =
   withConnection (openConnection hostname port) $ \conn -> do
     (page, pageSize) <- receiveWithHandler conn contentAndSizeH resource
-    let relations' = relations $ parseTags page
+    let relations' = relations $ parseTagsT page
     imageSizes <- mapM (receiveWithHandler conn sizeH) $ images relations'
     return $ (relations', pageSize + sum imageSizes)
 
 receiveWithHandler :: Connection
                    -> (Response -> Streams.InputStream BS.ByteString -> IO a)
-                   -> BS.ByteString
+                   -> Text
                    -> IO a
 receiveWithHandler conn handler resource = do
-  request <- buildRequest $ http GET resource
+  request <- buildRequest $ http GET (encodeUtf8 resource)
   sendRequest conn request emptyBody
   receiveResponse conn handler
 
-randomLink :: BehaviorState s => [BS.ByteString] -> Behavior s BS.ByteString
+randomLink :: BehaviorState s => [a] -> Behavior s a
 randomLink xs = do
   index <- liftIO $ randomRIO (0, length xs - 1)
   return $ xs !! index
