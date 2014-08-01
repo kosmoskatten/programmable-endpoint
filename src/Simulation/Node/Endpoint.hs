@@ -30,6 +30,7 @@ import Simulation.Node.Endpoint.Behavior
   , Port
   , runBehavior
   )
+import System.IO
 
 type IpAddress = String
 type BehaviorMap = Map.Map Receipt (Async ())
@@ -100,7 +101,9 @@ supervise action endpoint = do
       terminate task `handle` do
         status <- waitCatch task
         case status of
-          Left _ -> supervise' action' apiParam initialState
+          Left cause -> do
+            hPutStrLn stderr (show cause)
+            supervise' action' apiParam initialState
           _      -> return ()
 
     -- | Terminate is called in case the supervisor is cancelled. This
