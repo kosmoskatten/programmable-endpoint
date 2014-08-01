@@ -20,7 +20,7 @@ browsePage resource = do
   gateway           <- webGateway
   port              <- webPort
   (relations', size) <- liftIO $ processContent gateway port resource
-  updateBytesReceived size
+  updateBytesReceived $! size
   return $!! links relations'
 
 processContent :: Hostname -> Port -> Text -> IO (Relations, Int)
