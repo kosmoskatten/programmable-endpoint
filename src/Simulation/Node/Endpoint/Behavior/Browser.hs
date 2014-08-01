@@ -4,7 +4,6 @@ module Simulation.Node.Endpoint.Behavior.Browser
        , randomLink
        ) where
 
-import Control.Concurrent.Async (mapConcurrently)
 import qualified Data.ByteString.Char8 as BS
 import Network.Http.Client
 import Simulation.Node.Endpoint.Behavior
@@ -15,35 +14,38 @@ import Text.HTML.TagSoup.Fast (parseTags)
 
 browsePage :: BehaviorState s => BS.ByteString -> Behavior s [BS.ByteString]
 browsePage resource = do
-  gateway      <- webGateway
-  port         <- webPort
-  (page, size) <- liftIO $ getWithHandler gateway port contentAndSize resource
-  let relations' = relations $ parseTags page
-  sizes <- liftIO (mapConcurrently (getWithHandler gateway port sizeH)
-                                   (images relations'))
-  updateBytesReceived $ size + sum sizes
+  gateway           <- webGateway
+  port              <- webPort
+  (relations', size) <- liftIO $ processContent gateway port resource
+  updateBytesReceived size
   return $ links relations'
+
+processContent :: Hostname -> Port -> BS.ByteString -> IO (Relations, Int)
+processContent hostname port resource =
+  withConnection (openConnection hostname port) $ \conn -> do
+    (page, pageSize) <- receiveWithHandler conn contentAndSizeH resource
+    let relations' = relations $ parseTags page
+    imageSizes <- mapM (receiveWithHandler conn sizeH) $ images relations'
+    return $ (relations', pageSize + sum imageSizes)
+
+receiveWithHandler :: Connection
+                   -> (Response -> Streams.InputStream BS.ByteString -> IO a)
+                   -> BS.ByteString
+                   -> IO a
+receiveWithHandler conn handler resource = do
+  request <- buildRequest $ http GET resource
+  sendRequest conn request emptyBody
+  receiveResponse conn handler
 
 randomLink :: BehaviorState s => [BS.ByteString] -> Behavior s BS.ByteString
 randomLink xs = do
   index <- liftIO $ randomRIO (0, length xs - 1)
   return $ xs !! index
 
-getWithHandler :: Hostname
-               -> Port
-               -> (Response -> Streams.InputStream BS.ByteString -> IO a)
-               -> BS.ByteString
-               -> IO a
-getWithHandler hostname port handler resource=
-  withConnection (openConnection hostname port) $ \conn -> do
-    request <- buildRequest $ http GET resource
-    sendRequest conn request emptyBody
-    receiveResponse conn handler
-
-contentAndSize :: Response
-               -> Streams.InputStream BS.ByteString
-               -> IO (BS.ByteString, Int)
-contentAndSize response stream = do
+contentAndSizeH :: Response
+                -> Streams.InputStream BS.ByteString
+                -> IO (BS.ByteString, Int)
+contentAndSizeH response stream = do
   content <- concatHandler response stream
   return $ (content, BS.length content)
 
