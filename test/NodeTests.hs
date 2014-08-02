@@ -21,6 +21,7 @@ suite = testGroup "Node tests"
         ]
 
 data TestCounter = TestCounter
+  deriving (Eq, Ord)
 
 instance DataSet TestCounter where
   empty = TestCounter
@@ -31,9 +32,21 @@ instance ByteCounter TestCounter where
 
 shallListCorrectNumberOfEndpoints :: Assertion
 shallListCorrectNumberOfEndpoints = do
-  n <- (create gateway port) :: IO (Node TestCounter)
+  node <- (create gateway port) :: IO (Node TestCounter)
   assertEqual "Shall be empty"
-              0 =<< length <$> listAll n
+              0 =<< length <$> listAll node
+  ep1 <- createEndpoint "127.0.0.1" node
+  assertEqual "Shall be 1"
+              1 =<< length <$> listAll node
+  ep2 <- createEndpoint "127.0.0.2" node
+  assertEqual "Shall be 2"
+              2 =<< length <$> listAll node
+  removeEndpoint ep1 node
+  assertEqual "Shall be 1"
+              1 =<< length <$> listAll node
+  removeEndpoint ep2 node
+  assertEqual "Shall be empty"
+              0 =<< length <$> listAll node
 
 gateway :: Hostname
 gateway = "192.168.100.1"

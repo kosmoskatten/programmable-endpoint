@@ -2,6 +2,7 @@ module Simulation.Node
        ( Node (counter)
        , Simulation.Node.create
        , createEndpoint
+       , removeEndpoint
        , Simulation.Node.listAll
        ) where
 
@@ -48,6 +49,14 @@ createEndpoint ip node = do
                            (\s -> Set.insert endpoint s)
   return endpoint
 
--- | List all enpoints.
+-- | Remove an endpoint from the node.
+removeEndpoint :: (Ord c, DataSet c, ByteCounter c) =>
+                  Endpoint c -> Node c -> IO ()
+removeEndpoint endpoint node = do
+  reset endpoint
+  atomically $ modifyTVar' (endpointSet node)
+                           (\s -> Set.delete endpoint s)
+
+-- | List all endpoints.
 listAll :: Node c -> IO [Endpoint c]
 listAll node = Set.toList <$> readTVarIO (endpointSet node)
