@@ -25,10 +25,13 @@ import System.Random (randomRIO)
 import System.Timeout (timeout)
 import Simulation.Node.Counter hiding (create)
 import Simulation.Node.Endpoint
-  ( create
+  ( Endpoint
+  , BehaviorDesc (..)
+  , create
   , reset
   , addBehavior
   , removeBehavior
+  , listAll
   )
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior
@@ -61,6 +64,10 @@ suite = testGroup "Endpoint tests"
                    shallGetTheSameInitialStateAtRestart
         , testCase "Shall remove all behaviors at reset"
                    shallRemoveAllBehaviorsAtReset
+        , testCase "Shall list correct number of behaviors"
+                   shallListCorrectNumberOfBehaviors
+        , testCase "Shall list corrent slogan"
+                   shallListCorrectSlogan
         ]
 
 data TestState = TestState {num :: !Int}
@@ -199,6 +206,34 @@ shallRemoveAllBehaviorsAtReset = do
   assertBool "Counter shall not have progressed"
              =<< not <$> isProgressing tvar2
 
+-- | Test that the correct number of behaviors are listed.
+shallListCorrectNumberOfBehaviors :: Assertion
+shallListCorrectNumberOfBehaviors = do
+  ep <- (create localhost gateway port) :: IO (Endpoint TestCounter)
+  assertEqual "Shall be empty"
+               0 =<< length <$> listAll ep
+  b1 <- addBehavior emptyAction ep
+  assertEqual "Shall be 1"
+               1 =<< length <$> listAll ep
+  b2 <- addBehavior emptyAction ep
+  assertEqual "Shall be 2"
+               2 =<< length <$> listAll ep
+  void $ removeBehavior b2 ep
+  assertEqual "Shall be 1"
+               1 =<< length <$> listAll ep
+  void $ removeBehavior b1 ep
+  assertEqual "Shall be empty"
+               0 =<< length <$> listAll ep
+
+-- | Test that the correct slogan is listed for a behavior
+shallListCorrectSlogan :: Assertion
+shallListCorrectSlogan = do
+  ep <- create localhost gateway port
+  void $ addBehavior emptyAction ep
+  slogan <- theSlogan . snd . head <$> listAll ep
+  assertEqual "Shall be equal"
+              "TestSlogan" slogan
+  
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.
 isProgressing :: TVar Int -> IO Bool
