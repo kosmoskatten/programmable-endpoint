@@ -22,7 +22,7 @@ browsePage resource = do
   gateway           <- webGateway
   port              <- webPort
   (relations', size) <- liftIO $ processContent gateway port resource
-  updateBytesReceived $! size
+  updateBytesReceived size
   return $!! links relations'
 
 randomLink :: (DataSet c, ByteCounter c, BehaviorState s) =>
