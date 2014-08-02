@@ -17,7 +17,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Simulation.Node.Endpoint
+  exposed-modules:     Simulation.Node
+                       , Simulation.Node.Endpoint
                        , Simulation.Node.Counter
                        , Simulation.Node.Endpoint.Behavior
                        , Simulation.Node.Endpoint.Behavior.Browser
@@ -48,7 +49,8 @@ library
 test-suite programmable-endpoint-tests
   type:                exitcode-stdio-1.0
   main-is:             TestMain.hs
-  other-modules:       EndpointTests
+  other-modules:       NodeTests
+                       , EndpointTests
                        , BehaviorTests
                        , HttpServiceTests
   build-depends:       base >=4.7 && <4.8

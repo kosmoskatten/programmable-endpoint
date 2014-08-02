@@ -61,6 +61,9 @@ data Endpoint c =
            }
   deriving Eq
 
+instance Ord a => Ord (Endpoint a) where
+  compare x y = (ipAddress x) `compare` (ipAddress y)
+
 -- | A receipt for an added behavior.
 newtype Receipt = Receipt Int
   deriving (Eq, Ord, Show)

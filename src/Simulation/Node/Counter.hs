@@ -30,5 +30,8 @@ create = do
 instance Eq a => Eq (Counter a) where
   (==) x y = x == y
 
+instance Ord a => Ord (Counter a) where
+  compare x y = x `compare` y
+
 instance Show a => Show (Counter a) where
   show a = "Counter " ++ show a
