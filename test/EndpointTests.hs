@@ -23,12 +23,14 @@ import Test.HUnit
 import Data.Text ()
 import System.Random (randomRIO)
 import System.Timeout (timeout)
+import Simulation.Node.Counter hiding (create)
 import Simulation.Node.Endpoint
   ( create
   , reset
   , addBehavior
   , removeBehavior
   )
+import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
@@ -67,22 +69,32 @@ data TestState = TestState {num :: !Int}
 instance BehaviorState TestState where
   fetch = ("TestSlogan",) <$> (TestState <$> randomRIO (minBound, maxBound))
 
-emptyAction :: Behavior TestState ()
+data TestCounter = TestCounter
+  deriving (Eq, Show)
+
+instance DataSet TestCounter where
+  empty = TestCounter
+
+instance ByteCounter TestCounter where
+  addReceived _ x = x
+  getReceived _   = 0
+
+emptyAction :: Behavior TestCounter TestState ()
 emptyAction = return ()
 
-countingAction :: TVar Int -> Behavior TestState ()
+countingAction :: TVar Int -> Behavior TestCounter TestState ()
 countingAction tvar =
   forever $ do
     liftIO $ atomically (modifyTVar tvar (+ 1))
     sleepMsec 10
 
-crashingAction :: TMVar Int -> Behavior TestState ()
+crashingAction :: TMVar Int -> Behavior TestCounter TestState ()
 crashingAction tmvar = do
   num' <- num <$> get
   liftIO $ atomically (putTMVar tmvar num')
   liftIO $ print (1 `div` 0 :: Int)
 
-terminatingAction :: TMVar () -> Behavior TestState ()
+terminatingAction :: TMVar () -> Behavior TestCounter TestState ()
 terminatingAction tmvar =
   liftIO $ atomically (putTMVar tmvar ())
 
@@ -90,8 +102,9 @@ terminatingAction tmvar =
 -- unequal.
 shallBeDifferentEndpoints :: Assertion
 shallBeDifferentEndpoints = do
-  ep1 <- create localhost gateway port
-  ep2 <- create "127.0.0.2" gateway port
+  ep1 <- (Endpoint.create localhost gateway port)
+         :: IO (Endpoint.Endpoint TestCounter)
+  ep2 <- Endpoint.create "127.0.0.2" gateway port
   assertBool "Shall be different" $ ep1 /= ep2
 
 -- | Test that two receipts gotten the same endpoint are unequal.

@@ -18,7 +18,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Simulation.Node.Endpoint
-                       , Simulation.Node.Statistics
+                       , Simulation.Node.Counter
                        , Simulation.Node.Endpoint.Behavior
                        , Simulation.Node.Endpoint.Behavior.Browser
                        , Simulation.Node.Service.Http

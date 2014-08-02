@@ -21,6 +21,7 @@ module Simulation.Node.Endpoint.Behavior
 
 import Control.Applicative (Applicative, (<$>))
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.STM (STM, atomically)
 import Control.Monad (void)
 import Control.Monad.Reader (ReaderT, MonadIO, runReaderT, liftIO)
 import Control.Monad.State (StateT, runStateT)
@@ -28,24 +29,25 @@ import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
 import Network.Http.Client (Hostname, Port)
-import Simulation.Node.Statistics
-  ( Statistics
-  , atomically
-  , addBytesReceived )
+import Simulation.Node.Counter
+  ( Counter (modify)
+  , DataSet
+  , ByteCounter (addReceived)
+  )
 
--- | The Behavior monad; s is the user supplied behavior
--- state and a is the reply type of the action.
-newtype Behavior s a =
-  Behavior { extractBehavior :: ReaderT BehaviorApiParam (StateT s IO) a }
+-- | The Behavior monad; c is the counter type, s is the user supplied
+-- behavior state and a is the reply type of the action.
+newtype Behavior c s a =
+  Behavior { extractBehavior :: ReaderT (BehaviorApiParam c) (StateT s IO) a }
   deriving ( Functor, Applicative, Monad, MonadIO
-           , MonadReader BehaviorApiParam, MonadState s )
+           , MonadReader (BehaviorApiParam c), MonadState s )
 
 -- | Record with api parameters for the execution of the Behavior monad.
-data BehaviorApiParam =
+data BehaviorApiParam a =
   BehaviorApiParam { selfIpAddress_ :: !String
                    , webGateway_    :: !Hostname
                    , webPort_       :: !Port
-                   , counters_      :: ![Statistics] }
+                   , counters_      :: ![Counter a] }
   deriving Show
 
 -- | Typeclass for the user supplied behavior state.
@@ -54,17 +56,17 @@ class BehaviorState a where
   fetch :: IO (Text, a)
 
 -- | Run a behavior.
-runBehavior :: BehaviorState s  =>
-               Behavior s ()    ->
-               BehaviorApiParam ->
-               s -> IO ()
+runBehavior :: (DataSet c, ByteCounter c, BehaviorState s)  =>
+               Behavior c s ()    ->
+               BehaviorApiParam c ->
+               s                  -> IO ()
 runBehavior action param initialState =
   void $ runStateT (runReaderT (extractBehavior action) param) initialState
 
 -- | Run a behavior in a way suitable for testing of behaviors.
-runBehaviorTest :: BehaviorState s  =>
-                   Behavior s a     ->
-                   BehaviorApiParam -> IO (Text, a, s) 
+runBehaviorTest :: (DataSet c, ByteCounter c, BehaviorState s)  =>
+                   Behavior c s a     ->
+                   BehaviorApiParam c -> IO (Text, a, s) 
 runBehaviorTest action param = do
   (slogan, initialState) <- fetch
   (result, state)        <-
@@ -72,31 +74,40 @@ runBehaviorTest action param = do
   return (slogan, result, state)
 
 -- | Fetch own's ip address.
-selfIpAddress :: BehaviorState s => Behavior s String
+selfIpAddress :: (DataSet c, ByteCounter c, BehaviorState s) =>
+                 Behavior c s String
 selfIpAddress = selfIpAddress_ <$> ask
 
 -- | Fetch the gateway ip address to use.
-webGateway :: BehaviorState s => Behavior s Hostname
+webGateway :: (DataSet c, ByteCounter c, BehaviorState s) =>
+              Behavior c s Hostname
 webGateway = webGateway_ <$> ask
 
 -- | Fetch the gateway port to use.
-webPort :: BehaviorState s => Behavior s Port
+webPort :: (DataSet c, ByteCounter c, BehaviorState s) => Behavior c s Port
 webPort = webPort_ <$> ask
 
 -- | Sleep the requested number of seconds.
-sleepSec :: BehaviorState s => Int -> Behavior s ()
+sleepSec :: (DataSet c, ByteCounter c, BehaviorState s) =>
+            Int -> Behavior c s ()
 sleepSec duration = sleepMsec $ duration * 1000
 
 -- | Sleep the requested number of milliseconds.
-sleepMsec :: BehaviorState s => Int -> Behavior s ()
+sleepMsec :: (DataSet c, ByteCounter c, BehaviorState s) =>
+             Int -> Behavior c s ()
 sleepMsec duration = sleepUsec $ duration * 1000
 
 -- | Sleep the requested number if microseconds.
-sleepUsec :: BehaviorState s => Int -> Behavior s ()
+sleepUsec :: (DataSet c, ByteCounter c, BehaviorState s) =>
+             Int -> Behavior c s ()
 sleepUsec duration = liftIO $ threadDelay duration
   
--- | Update the counters with the amount of bytes received.
-updateBytesReceived :: BehaviorState s => Int -> Behavior s ()
+-- | Update the counter with the amount of bytes received.
+updateBytesReceived :: (DataSet c, ByteCounter c, BehaviorState s) =>
+                       Int -> Behavior c s ()
 updateBytesReceived amount = do
   counters <- counters_ <$> ask
-  liftIO $ (atomically $ mapM_ (addBytesReceived amount) counters)
+  liftIO $ (atomically $ mapM_ updateOneCounter counters)
+  where
+    updateOneCounter :: (DataSet c, ByteCounter c) => Counter c -> STM ()
+    updateOneCounter counter = (modify counter) $ addReceived amount

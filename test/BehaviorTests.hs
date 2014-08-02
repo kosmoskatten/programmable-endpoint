@@ -6,6 +6,7 @@ module BehaviorTests
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
+import Simulation.Node.Counter
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorApiParam (..)
@@ -46,23 +47,32 @@ data TestState = InitialState | SteppedState
 instance BehaviorState TestState where
   fetch = return ("TestSlogan", InitialState)
 
-emptyAction :: Behavior TestState ()
+data TestCounter = TestCounter
+
+instance DataSet TestCounter where
+  empty = TestCounter
+
+instance ByteCounter TestCounter where
+  addReceived _ x = x
+  getReceived _   = 0
+
+emptyAction :: Behavior TestCounter TestState ()
 emptyAction = return ()
 
-stepStateAction :: Behavior TestState ()
+stepStateAction :: Behavior TestCounter TestState ()
 stepStateAction = do
   put SteppedState
 
-getStateAction :: Behavior TestState TestState
+getStateAction :: Behavior TestCounter TestState TestState
 getStateAction = get
 
-selfIpAddress' :: Behavior TestState String
+selfIpAddress' :: Behavior TestCounter TestState String
 selfIpAddress' = selfIpAddress
 
-webGateway' :: Behavior TestState Hostname
+webGateway' :: Behavior TestCounter TestState Hostname
 webGateway' = webGateway
 
-webPort' :: Behavior TestState Port
+webPort' :: Behavior TestCounter TestState Port
 webPort' = webPort
 
 -- | Unit test with the empty action to make sure that the slogan is
@@ -126,7 +136,7 @@ webPortShallReturnApiParamValue = do
   assertEqual "Shall be equal"
               port gatewayPort
 
-makeApiParam :: BehaviorApiParam
+makeApiParam :: BehaviorApiParam c
 makeApiParam = BehaviorApiParam localhost gateway port []
       
 localhost :: String

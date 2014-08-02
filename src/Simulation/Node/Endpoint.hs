@@ -1,8 +1,8 @@
 module Simulation.Node.Endpoint
-       ( Endpoint (statistics)
+       ( Endpoint (counter)
        , Receipt
        , IpAddress
-       , create
+       , Simulation.Node.Endpoint.create
        , reset
        , addBehavior
        , removeBehavior
@@ -21,7 +21,8 @@ import Control.Concurrent.STM
 import Control.Exception (AsyncException (..), handle, throwIO)
 import Control.Monad (void)
 import qualified Data.Map.Strict as Map
-import qualified Simulation.Node.Statistics as Statistics
+import Simulation.Node.Counter
+import qualified Simulation.Node.Counter as Counter
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
@@ -36,13 +37,13 @@ type IpAddress = String
 type BehaviorMap = Map.Map Receipt (Async ())
 
 -- | An endpoint instance descriptor.
-data Endpoint =
+data Endpoint c =
   Endpoint { ipAddress      :: !IpAddress
            , webGateway     :: !Hostname
            , webPort        :: !Port
            , receiptCounter :: TVar Int
            , behaviorMap    :: TVar BehaviorMap
-           , statistics     :: !Statistics.Statistics
+           , counter        :: Counter c
            }
   deriving Eq
 
@@ -51,20 +52,22 @@ newtype Receipt = Receipt Int
   deriving (Eq, Ord)
 
 -- | Create an endpoint instance.
-create :: IpAddress -> Hostname -> Port -> IO Endpoint
+create :: (DataSet a, ByteCounter a) =>
+          IpAddress -> Hostname -> Port -> IO (Endpoint a)
 create ip gateway port =
   Endpoint ip gateway port <$> newTVarIO 1
                            <*> newTVarIO Map.empty
-                           <*> Statistics.create
+                           <*> Counter.create
 
 -- | Reset an endpoint instance by removing all behaviors.
-reset :: Endpoint -> IO ()
+reset :: (DataSet a, ByteCounter a) => Endpoint a -> IO ()
 reset endpoint = do
   behaviorList <- Map.toList <$> atomically (readTVar (behaviorMap endpoint))
   mapM_ (flip removeBehavior endpoint . fst) behaviorList
 
 -- | Add a behavior to the endpoint.
-addBehavior :: BehaviorState s => Behavior s () -> Endpoint -> IO Receipt
+addBehavior :: (DataSet c, ByteCounter c, BehaviorState s) =>
+               Behavior c s () -> Endpoint c -> IO Receipt
 addBehavior action endpoint = do
   task <- async $ supervise action endpoint
   atomicallyAdd task
@@ -72,29 +75,30 @@ addBehavior action endpoint = do
     atomicallyAdd :: Async () -> IO Receipt
     atomicallyAdd task =
       atomically $ do
-        let counter   = receiptCounter endpoint
-            behaviors = behaviorMap endpoint
-        receipt <- Receipt <$> readTVar counter
-        modifyTVar counter (+ 1)
+        let receiptCounter'   = receiptCounter endpoint
+            behaviors         = behaviorMap endpoint
+        receipt <- Receipt <$> readTVar receiptCounter'
+        modifyTVar receiptCounter' (+ 1)
         modifyTVar behaviors (Map.insert receipt task)
         return receipt
 
 -- | Supervise a behavior. If the behavior is crashed the behavior
 -- shall be restarted by the supervisor. If the behavior is normally
 -- terminated no action is taken.
-supervise :: BehaviorState s => Behavior s () -> Endpoint -> IO ()
+supervise :: (DataSet c, ByteCounter c, BehaviorState s) =>
+             Behavior c s () -> Endpoint c -> IO ()
 supervise action endpoint = do
-  behaviorStatistics <- Statistics.create
+  behaviorCounter <- Counter.create
   let apiParam = BehaviorApiParam (ipAddress endpoint)
                                   (webGateway endpoint)
                                   (webPort endpoint)
-                                  [statistics endpoint, behaviorStatistics]
+                                  [counter endpoint, behaviorCounter]
   (_, initialState) <- fetch
   supervise' action apiParam initialState
   where
-    supervise' :: BehaviorState s  =>
-                  Behavior s ()    ->
-                  BehaviorApiParam ->
+    supervise' :: (DataSet c, ByteCounter c, BehaviorState s) =>
+                  Behavior c s ()    ->
+                  BehaviorApiParam c ->
                   s -> IO ()
     supervise' action' apiParam initialState = do
       task <- async $ runBehavior action' apiParam initialState
@@ -117,7 +121,8 @@ supervise action endpoint = do
         _            -> throwIO e
 
 -- | Remove a behavior from the endpoint.
-removeBehavior :: Receipt -> Endpoint -> IO (Either String ())
+removeBehavior :: (DataSet c, ByteCounter c) =>
+                  Receipt -> Endpoint c -> IO (Either String ())
 removeBehavior receipt endpoint = do
   maybeTask <- maybeAtomicallyDelete
   case maybeTask of
