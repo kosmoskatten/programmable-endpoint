@@ -40,6 +40,7 @@ import System.IO
 type IpAddress = String
 type BehaviorMap c = Map.Map Receipt (BehaviorDesc c)
 
+-- | A descriptor of an installed behavior.
 data BehaviorDesc c =
   BehaviorDesc { theSlogan   :: !Text
                , theCounter  :: Counter c
