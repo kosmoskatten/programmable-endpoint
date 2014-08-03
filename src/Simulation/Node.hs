@@ -8,12 +8,16 @@ module Simulation.Node
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Concurrent.STM
-  ( TVar
+  ( STM
+  , TVar
   , atomically
   , modifyTVar'
   , newTVarIO
+  , readTVar
   , readTVarIO
+  , writeTVar
   )
+import Control.Monad (when)
 import Data.List (delete)
 import Simulation.Node.Counter
 import qualified Simulation.Node.Counter as Counter
@@ -45,10 +49,18 @@ createEndpoint ip node = do
   return endpoint
 
 -- | Remove an endpoint from the node.
-removeEndpoint :: (Ord c, Counter c) => Endpoint c -> Node c -> IO ()
+removeEndpoint :: (Eq c, Counter c) => Endpoint c -> Node c -> IO ()
 removeEndpoint endpoint node = do
-  reset endpoint
-  atomically $ modifyTVar' (endpoints node) (delete endpoint)
+  isDeleted <- atomically $ maybeDelete endpoint (endpoints node)
+  when isDeleted $ reset endpoint
+
+maybeDelete :: (Eq c, Counter c) => Endpoint c -> TVar [Endpoint c] -> STM Bool
+maybeDelete endpoint endpoints' = do
+  xs <- readTVar endpoints'
+  if endpoint `elem` xs then do
+    writeTVar endpoints' (endpoint `delete` xs)
+    return True
+    else return False
 
 -- | List all endpoints.
 listAll :: Node c -> IO [Endpoint c]
