@@ -23,7 +23,7 @@ import Test.HUnit
 import Data.Text ()
 import System.Random (randomRIO)
 import System.Timeout (timeout)
-import Simulation.Node.Counter hiding (create)
+import Simulation.Node.Counter
 import Simulation.Node.Endpoint
   ( Endpoint
   , BehaviorDesc (..)
@@ -50,8 +50,6 @@ suite = testGroup "Endpoint tests"
                    shallBeDifferentEndpoints
         , testCase "Shall be different receipts"
                    shallBeDifferentReceipts
-        , testCase "Shall remove a behavior once"
-                   shallRemoveABehaviorOnce
         , testCase "Shall run a behavior in its own thread"
                    shallRunInItsOwnThread
         , testCase "Shall stop when removed"
@@ -79,10 +77,8 @@ instance BehaviorState TestState where
 data TestCounter = TestCounter
   deriving (Eq, Show)
 
-instance DataSet TestCounter where
-  empty = TestCounter
-
-instance ByteCounter TestCounter where
+instance Counter TestCounter where
+  empty           = TestCounter
   addReceived _ x = x
   getReceived _   = 0
 
@@ -121,18 +117,6 @@ shallBeDifferentReceipts = do
   r1 <- addBehavior emptyAction ep
   r2 <- addBehavior emptyAction ep
   assertBool "Shall be different" $ r1 /= r2
-
--- | Test that a receipt only can be removed once. The second time an
--- error message shall be returned.
-shallRemoveABehaviorOnce :: Assertion
-shallRemoveABehaviorOnce = do
-  ep <- create localhost gateway port
-  r  <- addBehavior emptyAction ep
-  resultSuccess <- removeBehavior r ep
-  resultFailure <- removeBehavior r ep
-  assertEqual "Shall be Right ()"
-              (Right ()) resultSuccess
-  assertBool "Shall be different" $ resultSuccess /= resultFailure
 
 -- | Test that an added behavior run in its own thread.
 shallRunInItsOwnThread :: Assertion

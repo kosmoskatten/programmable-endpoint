@@ -9,14 +9,14 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.ByteString.Char8 as BS
 import Network.Http.Client
-import Simulation.Node.Counter (DataSet, ByteCounter)
+import Simulation.Node.Counter (Counter)
 import Simulation.Node.Endpoint.Behavior
 import Simulation.Node.Endpoint.Internal.Relations
 import qualified System.IO.Streams as Streams
 import System.Random (randomRIO)
 import Text.HTML.TagSoup.Fast (parseTagsT)
 
-browsePage :: (DataSet c, ByteCounter c, BehaviorState s) =>
+browsePage :: (Counter c, BehaviorState s) =>
               Text -> Behavior c s [Text]
 browsePage resource = do
   gateway           <- webGateway
@@ -25,7 +25,7 @@ browsePage resource = do
   updateBytesReceived size
   return $!! links relations'
 
-randomLink :: (DataSet c, ByteCounter c, BehaviorState s) =>
+randomLink :: (Counter c, BehaviorState s) =>
               [a] -> Behavior c s a
 randomLink xs = do
   index <- liftIO $ randomRIO (0, length xs - 1)

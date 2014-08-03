@@ -28,21 +28,19 @@ type EndpointSet c = Set.Set (Endpoint c)
 
 -- | A node instance descriptor.
 data Node c =
-  Node { webGateway :: !Hostname
-       , webPort    :: !Port
+  Node { webGateway  :: !Hostname
+       , webPort     :: !Port
        , endpointSet :: TVar (EndpointSet c)
-       , counter :: Counter c }
+       , counter     :: TVar c}
   deriving Eq
 
 -- | Create a node instance.
-create :: (DataSet c, ByteCounter c) =>
-          Hostname -> Port -> IO (Node c)
+create :: Counter c => Hostname -> Port -> IO (Node c)
 create gateway port = Node gateway port <$> newTVarIO Set.empty
-                                        <*> Counter.create
+                                        <*> newTVarIO Counter.empty
 
 -- | Create an endpoint instance.
-createEndpoint :: (Ord c, DataSet c, ByteCounter c) =>
-                  IpAddress -> Node c -> IO (Endpoint c)
+createEndpoint :: (Ord c, Counter c) => IpAddress -> Node c -> IO (Endpoint c)
 createEndpoint ip node = do
   endpoint <- Endpoint.create ip (webGateway node) (webPort node)
   atomically $ modifyTVar' (endpointSet node)
@@ -50,8 +48,7 @@ createEndpoint ip node = do
   return endpoint
 
 -- | Remove an endpoint from the node.
-removeEndpoint :: (Ord c, DataSet c, ByteCounter c) =>
-                  Endpoint c -> Node c -> IO ()
+removeEndpoint :: (Ord c, Counter c) => Endpoint c -> Node c -> IO ()
 removeEndpoint endpoint node = do
   reset endpoint
   atomically $ modifyTVar' (endpointSet node)

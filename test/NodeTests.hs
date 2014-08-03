@@ -8,7 +8,7 @@ import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node)
 import Simulation.Node
-import Simulation.Node.Counter (DataSet (..), ByteCounter (..))
+import Simulation.Node.Counter (Counter (..))
 import Simulation.Node.Endpoint.Behavior
   ( Hostname
   , Port
@@ -23,10 +23,8 @@ suite = testGroup "Node tests"
 data TestCounter = TestCounter
   deriving (Eq, Ord)
 
-instance DataSet TestCounter where
-  empty = TestCounter
-
-instance ByteCounter TestCounter where
+instance Counter TestCounter where
+  empty           = TestCounter
   addReceived _ x = x
   getReceived _   = 0
 

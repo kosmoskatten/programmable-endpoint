@@ -13,7 +13,8 @@ module Simulation.Node.Endpoint
 import Control.Applicative ((<$>), (<*>))
 import Control.Concurrent.Async (Async, async, cancel, waitCatch)
 import Control.Concurrent.STM
-  ( TVar
+  ( STM
+  , TVar
   , atomically
   , newTVarIO
   , readTVar
@@ -43,12 +44,11 @@ type BehaviorMap c = Map.Map Receipt (BehaviorDesc c)
 -- | A descriptor of an installed behavior.
 data BehaviorDesc c =
   BehaviorDesc { theSlogan   :: !Text
-               , theCounter  :: Counter c
+               , theCounter  :: TVar c
                , theThread   :: Async () }
 
 instance Show c => Show (BehaviorDesc c) where
-  show desc = "BehaviorDesc { " ++ show (theSlogan desc)
-              ++ ", " ++ show (theCounter desc) ++ "}"
+  show desc = "BehaviorDesc { theSlogan = " ++ show (theSlogan desc) ++ "}"
 
 -- | An endpoint instance descriptor.
 data Endpoint c =
@@ -57,7 +57,7 @@ data Endpoint c =
            , webPort        :: !Port
            , receiptCounter :: TVar Int
            , behaviorMap    :: TVar (BehaviorMap c)
-           , counter        :: Counter c
+           , counter        :: TVar c
            }
   deriving Eq
 
@@ -69,25 +69,24 @@ newtype Receipt = Receipt Int
   deriving (Eq, Ord, Show)
 
 -- | Create an endpoint instance.
-create :: (DataSet a, ByteCounter a) =>
-          IpAddress -> Hostname -> Port -> IO (Endpoint a)
+create :: Counter c => IpAddress -> Hostname -> Port -> IO (Endpoint c)
 create ip gateway port =
   Endpoint ip gateway port <$> newTVarIO 1
                            <*> newTVarIO Map.empty
-                           <*> Counter.create
+                           <*> newTVarIO Counter.empty
 
 -- | Reset an endpoint instance by removing all behaviors.
-reset :: (DataSet a, ByteCounter a) => Endpoint a -> IO ()
+reset :: Counter c => Endpoint c -> IO ()
 reset endpoint = do
   behaviorList <- Map.toList <$> atomically (readTVar (behaviorMap endpoint))
   mapM_ (flip removeBehavior endpoint . fst) behaviorList
 
 -- | Add a behavior to the endpoint.
-addBehavior :: (DataSet c, ByteCounter c, BehaviorState s) =>
+addBehavior :: (Counter c, BehaviorState s) =>
                Behavior c s () -> Endpoint c -> IO Receipt
 addBehavior action endpoint = do
   (slogan, initialState) <- fetch
-  behaviorCounter <- Counter.create
+  behaviorCounter <- newTVarIO Counter.empty
   task <- async $ supervise action endpoint initialState behaviorCounter
   atomicallyAdd $ BehaviorDesc slogan behaviorCounter task
   where
@@ -104,8 +103,8 @@ addBehavior action endpoint = do
 -- | Supervise a behavior. If the behavior is crashed the behavior
 -- shall be restarted by the supervisor. If the behavior is normally
 -- terminated no action is taken.
-supervise :: (DataSet c, ByteCounter c, BehaviorState s) =>
-             Behavior c s () -> Endpoint c -> s -> Counter c -> IO ()
+supervise :: (Counter c, BehaviorState s) =>
+             Behavior c s () -> Endpoint c -> s -> TVar c -> IO ()
 supervise action endpoint initialState behaviorCounter = do
   let apiParam = BehaviorApiParam (ipAddress endpoint)
                                   (webGateway endpoint)
@@ -113,7 +112,7 @@ supervise action endpoint initialState behaviorCounter = do
                                   [counter endpoint, behaviorCounter]
   supervise' action apiParam initialState
   where
-    supervise' :: (DataSet c, ByteCounter c, BehaviorState s) =>
+    supervise' :: (Counter c, BehaviorState s) =>
                   Behavior c s ()    ->
                   BehaviorApiParam c ->
                   s -> IO ()
@@ -138,28 +137,25 @@ supervise action endpoint initialState behaviorCounter = do
         _            -> throwIO e
 
 -- | Remove a behavior from the endpoint.
-removeBehavior :: (DataSet c, ByteCounter c) =>
-                  Receipt -> Endpoint c -> IO (Either String ())
+removeBehavior :: Counter c => Receipt -> Endpoint c -> IO ()
 removeBehavior receipt endpoint = do
-  maybeTask <- maybeAtomicallyDelete
-  case maybeTask of
+  maybeBehavior <- atomically $ maybeDelete receipt (behaviorMap endpoint)
+  case maybeBehavior of
     Just descriptor -> do
       cancel (theThread descriptor)
       void $ waitCatch (theThread descriptor)
-      return $ Right ()
-    _         -> return $ Left "Behavior was not found"
-  where
---    maybeAtomicallyDelete :: IO (Maybe BehaviorDesc)
-    maybeAtomicallyDelete =
-      atomically $ do
-        behaviors <- readTVar (behaviorMap endpoint)
-        case Map.lookup receipt behaviors of
-          entry@(Just _) -> do
-            writeTVar (behaviorMap endpoint) (Map.delete receipt behaviors)
-            return entry
-          _              -> return Nothing
-          
+    Nothing         -> return ()
 
+maybeDelete :: Counter c =>
+               Receipt -> TVar (BehaviorMap c) -> STM (Maybe (BehaviorDesc c))
+maybeDelete receipt behaviors = do
+  theMap <- readTVar behaviors
+  case Map.lookup receipt theMap of
+    entry@(Just _) -> do
+      writeTVar behaviors (Map.delete receipt theMap)
+      return entry
+    Nothing -> return Nothing
+                
 -- List all behaviors with their receipts and descriptors
 listAll :: Endpoint c -> IO ([(Receipt, BehaviorDesc c)])
 listAll endpoint = Map.toList <$> readTVarIO (behaviorMap endpoint)

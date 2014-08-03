@@ -49,10 +49,8 @@ instance BehaviorState TestState where
 
 data TestCounter = TestCounter
 
-instance DataSet TestCounter where
-  empty = TestCounter
-
-instance ByteCounter TestCounter where
+instance Counter TestCounter where
+  empty           = TestCounter
   addReceived _ x = x
   getReceived _   = 0
 
