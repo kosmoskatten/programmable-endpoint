@@ -54,16 +54,18 @@ data Endpoint c =
   Endpoint { ipAddress      :: !IpAddress
            , webGateway     :: !Hostname
            , webPort        :: !Port
+           , nodeCounter    :: TVar c             
            , behaviors      :: TVar [BehaviorDesc c]
            , counter        :: TVar c
            }
   deriving Eq
 
 -- | Create an endpoint instance.
-create :: Counter c => IpAddress -> Hostname -> Port -> IO (Endpoint c)
-create ip gateway port =
-  Endpoint ip gateway port <$> newTVarIO []
-                           <*> newTVarIO Counter.empty
+create :: Counter c =>
+          IpAddress -> Hostname -> Port -> TVar c -> IO (Endpoint c)
+create ip gateway port nodeCounter' =
+  Endpoint ip gateway port nodeCounter' <$> newTVarIO []
+                                        <*> newTVarIO Counter.empty
 
 -- | Reset an endpoint instance by removing all behaviors.
 reset :: (Eq c, Counter c) => Endpoint c -> IO ()
@@ -80,7 +82,9 @@ addBehavior action endpoint = do
   let params = BehaviorApiParam (ipAddress endpoint)
                                 (webGateway endpoint)
                                 (webPort endpoint)
-                                [counter endpoint, behaviorCounter]
+                                [ nodeCounter endpoint
+                                , counter endpoint
+                                , behaviorCounter ]
   thread <- async $ supervise action params state
   let behaviorDesc = BehaviorDesc slogan behaviorCounter thread
   atomically $ modifyTVar' (behaviors endpoint) (behaviorDesc:)

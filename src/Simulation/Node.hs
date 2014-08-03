@@ -21,7 +21,7 @@ import Control.Monad (when)
 import Data.List (delete)
 import Simulation.Node.Counter
 import qualified Simulation.Node.Counter as Counter
-import Simulation.Node.Endpoint
+import Simulation.Node.Endpoint hiding (counter)
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior
   ( Hostname
@@ -44,7 +44,7 @@ create gateway port = Node gateway port <$> newTVarIO []
 -- | Create an endpoint instance.
 createEndpoint :: (Ord c, Counter c) => IpAddress -> Node c -> IO (Endpoint c)
 createEndpoint ip node = do
-  endpoint <- Endpoint.create ip (webGateway node) (webPort node)
+  endpoint <- Endpoint.create ip (webGateway node) (webPort node) (counter node)
   atomically $ modifyTVar' (endpoints node) (endpoint:)
   return endpoint
 
