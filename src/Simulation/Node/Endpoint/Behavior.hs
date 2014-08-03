@@ -97,7 +97,7 @@ updateBytesReceived :: (Counter c, BehaviorState s) =>
                        Int -> Behavior c s ()
 updateBytesReceived amount = do
   counters <- counters_ <$> ask
-  liftIO $ (atomically $ mapM_ updateOneCounter counters)
+  liftIO (atomically $ mapM_ updateOneCounter counters)
   where
     updateOneCounter :: (Counter c) => TVar c -> STM ()
     updateOneCounter counter = modifyTVar' counter $ addReceived amount

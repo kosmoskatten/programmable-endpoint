@@ -35,7 +35,7 @@ import Simulation.Node.Endpoint.Behavior
   , Port
   , runBehavior
   )
-import System.IO
+import System.IO (stderr, hPrint)
 
 type IpAddress = String
 
@@ -101,7 +101,7 @@ supervise action params state = do
     status <- waitCatch task
     case status of
       Left cause -> do
-        hPutStrLn stderr (show cause)
+        hPrint stderr cause
         supervise action params state
       _      -> return ()
 

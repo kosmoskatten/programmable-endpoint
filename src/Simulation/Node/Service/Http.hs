@@ -60,7 +60,7 @@ as (Routes xs) prefix =
 -- routes. The HttpService monad will be evaluated down to the snap
 -- monad in this step.
 toSnapRoutes :: [Service a] -> [(BS.ByteString, Snap a)]
-toSnapRoutes xs = concat $ map (\(Service xs') -> map toSnap xs') xs
+toSnapRoutes = concatMap (\(Service xs') -> map toSnap xs')
 
 -- | Fetch own's self store position in the file system (relative to
 -- current working directory). E.g. if the service's name is foo the
@@ -77,7 +77,7 @@ basePrefix = basePrefix_ <$> ask
 
 -- | Run an HttpService in the Snap monad.
 runHttpService :: HttpService a -> HttpServiceApiParam -> Snap a
-runHttpService action param = runReaderT (extractHttpService action) param
+runHttpService action = runReaderT (extractHttpService action)
 
 toSnap :: (BS.ByteString, HttpService a, String) -> (BS.ByteString, Snap a)
 toSnap (url, action, prefix) = (url, runHttpService action makeParam)

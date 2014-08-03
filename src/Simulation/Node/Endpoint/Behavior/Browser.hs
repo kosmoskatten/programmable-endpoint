@@ -37,7 +37,7 @@ processContent hostname port resource =
     (page, pageSize) <- receiveWithHandler conn contentAndSizeH resource
     let relations' = relations $ parseTagsT page
     imageSizes <- mapM (receiveWithHandler conn sizeH) $ images relations'
-    return $ (relations', pageSize + sum imageSizes)
+    return (relations', pageSize + sum imageSizes)
 
 receiveWithHandler :: Connection
                    -> (Response -> Streams.InputStream BS.ByteString -> IO a)
@@ -53,7 +53,7 @@ contentAndSizeH :: Response
                 -> IO (BS.ByteString, Int)
 contentAndSizeH response stream = do
   content <- concatHandler response stream
-  return $ (content, BS.length content)
+  return (content, BS.length content)
 
 sizeH  :: Response -> Streams.InputStream BS.ByteString -> IO Int
 sizeH _ stream =
