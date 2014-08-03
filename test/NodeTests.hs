@@ -4,14 +4,16 @@ module NodeTests
        ) where
 
 import Control.Applicative ((<$>))
-import Control.Concurrent.STM (TVar, atomically, readTVarIO)
-import Control.Concurrent.STM.TMVar
-  ( TMVar
+import Control.Concurrent.STM
+  ( TVar
+  , TMVar
+  , atomically
+  , readTVarIO
   , newEmptyTMVarIO
   , putTMVar
-  , takeTMVar
+  , takeTMVar    
   )
-import Control.Monad (void)
+import Control.Monad (void, replicateM)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node)
@@ -36,6 +38,8 @@ suite = testGroup "Node tests"
                    shallListCorrectNumberOfEndpoints
         , testCase "All counters shall be updated equally"
                    shallUpdateCountersEqually
+        , testCase "Counter shall be updated hierarchally"
+                   shallUpdateCountersHierarchally
         ]
 
 data TestState = TestState
@@ -92,6 +96,35 @@ shallUpdateCountersEqually = do
   assertEqual "Node counter shall be 1"
               1 =<< getByteCount (Node.counter node)
 
+-- | Test that counters on node, endpoints and behaviors are updated
+-- hierarchally. I.e. that counter values are accumulated on node and
+-- endpoint levels.
+shallUpdateCountersHierarchally :: Assertion
+shallUpdateCountersHierarchally = do
+  syncs@[s1, s2, s3, s4] <- replicateM 4 newEmptyTMVarIO
+  node <- Node.create gateway port
+  ep1  <- createEndpoint "127.0.0.1" node
+  ep2  <- createEndpoint "127.0.0.2" node
+  b1   <- addBehavior (addingBehavior s1) ep1
+  b2   <- addBehavior (addingBehavior s2) ep1
+  b3   <- addBehavior (addingBehavior s3) ep2
+  b4   <- addBehavior (addingBehavior s4) ep2
+  mapM_ takeTMVarIO syncs
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getByteCount (Endpoint.theCounter b1)
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getByteCount (Endpoint.theCounter b2)
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getByteCount (Endpoint.theCounter b3)
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getByteCount (Endpoint.theCounter b4)
+  assertEqual "Endpoint counter shall be 2"
+              2 =<< getByteCount (Endpoint.counter ep1)
+  assertEqual "Endpoint counter shall be 2"
+              2 =<< getByteCount (Endpoint.counter ep2)
+  assertEqual "Node counter shall be 4"
+              4 =<< getByteCount (Node.counter node)              
+  
 getByteCount :: TVar TestCounter -> IO Int64
 getByteCount tvar = getReceived <$> readTVarIO tvar
 
