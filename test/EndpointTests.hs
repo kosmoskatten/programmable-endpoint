@@ -136,7 +136,7 @@ shallStopWhenRemoved = do
   ep   <- create localhost gateway port
   tvar <- newTVarIO 0
   r    <- addBehavior (countingAction tvar) ep
-  void $ removeBehavior r ep
+  void $ removeBehavior ep r
   assertBool "Counter shall not have progressed"
              =<< not <$> isProgressing tvar
 
@@ -202,10 +202,10 @@ shallListCorrectNumberOfBehaviors = do
   b2 <- addBehavior emptyAction ep
   assertEqual "Shall be 2"
                2 =<< length <$> listAll ep
-  void $ removeBehavior b2 ep
+  void $ removeBehavior ep b2
   assertEqual "Shall be 1"
                1 =<< length <$> listAll ep
-  void $ removeBehavior b1 ep
+  void $ removeBehavior ep b1
   assertEqual "Shall be empty"
                0 =<< length <$> listAll ep
 
@@ -214,7 +214,7 @@ shallListCorrectSlogan :: Assertion
 shallListCorrectSlogan = do
   ep <- create localhost gateway port
   void $ addBehavior emptyAction ep
-  slogan <- theSlogan . snd . head <$> listAll ep
+  slogan <- theSlogan . head <$> listAll ep
   assertEqual "Shall be equal"
               "TestSlogan" slogan
   
