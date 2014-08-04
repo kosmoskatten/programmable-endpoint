@@ -25,8 +25,6 @@ import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
-  , Hostname
-  , Port
   , updateBytesReceived
   , liftIO
   )

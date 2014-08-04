@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Simulation.Node.Service.Http
        ( HttpService
+       , Service
        , Routes (..)
        , activate
        , as

@@ -1,21 +1,29 @@
 module Simulation.Node
        ( Node (counter)
+       , Hostname
+       , Port
        , Simulation.Node.create
        , createEndpoint
        , removeEndpoint
        , Simulation.Node.listAll
+       , activateHttpServices
+       , as
        ) where
 
 import Control.Applicative ((<$>), (<*>))
+import Control.Concurrent.Async (Async, async)
 import Control.Concurrent.STM
   ( STM
   , TVar
+  , TMVar
   , atomically
   , modifyTVar'
   , newTVarIO
+  , newEmptyTMVarIO
   , readTVar
   , readTVarIO
   , writeTVar
+  , putTMVar
   )
 import Control.Monad (when)
 import Data.List (delete)
@@ -23,23 +31,23 @@ import Simulation.Node.Counter
 import qualified Simulation.Node.Counter as Counter
 import Simulation.Node.Endpoint hiding (counter)
 import qualified Simulation.Node.Endpoint as Endpoint
-import Simulation.Node.Endpoint.Behavior
-  ( Hostname
-  , Port
-  )
+import Simulation.Node.Endpoint.Behavior (Hostname, Port)
+import Simulation.Node.Service.Http (Service, as, activate)
 
 -- | A node instance descriptor.
 data Node c =
-  Node { webGateway  :: !Hostname
-       , webPort     :: !Port
-       , endpoints   :: TVar [Endpoint c]
-       , counter     :: TVar c }
+  Node { webGateway   :: !Hostname
+       , webPort      :: !Port
+       , endpoints    :: TVar [Endpoint c]
+       , counter      :: TVar c 
+       , httpServices :: TMVar (Async ())}
   deriving Eq
 
 -- | Create a node instance.
 create :: Counter c => Hostname -> Port -> IO (Node c)
 create gateway port = Node gateway port <$> newTVarIO []
                                         <*> newTVarIO Counter.empty
+                                        <*> newEmptyTMVarIO
 
 -- | Create an endpoint instance.
 createEndpoint :: (Ord c, Counter c) => IpAddress -> Node c -> IO (Endpoint c)
@@ -65,3 +73,9 @@ maybeDelete endpoint endpoints' = do
 -- | List all endpoints.
 listAll :: Node c -> IO [Endpoint c]
 listAll node = readTVarIO (endpoints node)
+
+-- | Activate http services in a separate thread.
+activateHttpServices :: Node c -> Int -> [Service ()] -> IO ()
+activateHttpServices node port services = do
+  thread <- async $ activate port services
+  atomically $ putTMVar (httpServices node) thread
