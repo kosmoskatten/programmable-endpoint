@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings, TupleSections, BangPatterns #-}
 module Simulation.Node.Endpoint.Behavior.Browser
        ( browsePage
-       , randomLink
        ) where
 
 import Control.DeepSeq (($!!))
@@ -13,7 +12,6 @@ import Simulation.Node.Counter (Counter)
 import Simulation.Node.Endpoint.Behavior
 import Simulation.Node.Endpoint.Internal.Relations
 import qualified System.IO.Streams as Streams
-import System.Random (randomRIO)
 import Text.HTML.TagSoup.Fast (parseTagsT)
 
 browsePage :: (Counter c, BehaviorState s) =>
@@ -25,19 +23,15 @@ browsePage resource = do
   updateBytesReceived size
   return $!! links relations'
 
-randomLink :: (Counter c, BehaviorState s) =>
-              [a] -> Behavior c s a
-randomLink xs = do
-  index <- liftIO $ randomRIO (0, length xs - 1)
-  return $ xs !! index
-
 processContent :: Hostname -> Port -> Text -> IO (Relations, Int)
 processContent hostname port resource =
   withConnection (openConnection hostname port) $ \conn -> do
     (page, pageSize) <- receiveWithHandler conn contentAndSizeH resource
     let relations' = relations $ parseTagsT page
-    imageSizes <- mapM (receiveWithHandler conn sizeH) $ images relations'
-    return (relations', pageSize + sum imageSizes)
+    fetchSizes <- 
+      mapM (receiveWithHandler conn sizeH) $ 
+        scripts relations' ++ stylesheets relations' ++ images relations'
+    return (relations', pageSize + sum fetchSizes)
 
 receiveWithHandler :: Connection
                    -> (Response -> Streams.InputStream BS.ByteString -> IO a)

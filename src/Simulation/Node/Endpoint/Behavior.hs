@@ -17,6 +17,9 @@ module Simulation.Node.Endpoint.Behavior
        , sleepMsec
        , sleepUsec
        , updateBytesReceived         
+       , interval
+       , oneOfIO
+       , oneOf  
        ) where
 
 import Control.Applicative (Applicative, (<$>))
@@ -30,6 +33,7 @@ import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
 import Network.Http.Client (Hostname, Port)
 import Simulation.Node.Counter (Counter (..))
+import System.Random (randomRIO)
 
 -- | The Behavior monad; c is the counter type, s is the user supplied
 -- behavior state and a is the reply type of the action.
@@ -101,3 +105,16 @@ updateBytesReceived amount = do
   where
     updateOneCounter :: (Counter c) => TVar c -> STM ()
     updateOneCounter counter = modifyTVar' counter $ addReceived amount
+
+-- | Specify an interval, e.g. a time interval.
+interval :: (Int, Int) -> IO Int
+interval = randomRIO
+
+-- | Randomly select one of the elements in the provided list.
+oneOfIO :: [a] -> IO a
+oneOfIO xs = (xs !!) <$> randomRIO (0, length xs - 1)
+
+-- | Randomly select one of the elements in the provided list. Adapted
+-- for the Behavior monad.
+oneOf :: (BehaviorState s, Counter c) => [a] -> Behavior c s a
+oneOf = liftIO . oneOfIO

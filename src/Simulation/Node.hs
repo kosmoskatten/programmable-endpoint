@@ -50,7 +50,7 @@ create gateway port = Node gateway port <$> newTVarIO []
                                         <*> newEmptyTMVarIO
 
 -- | Create an endpoint instance.
-createEndpoint :: (Ord c, Counter c) => IpAddress -> Node c -> IO (Endpoint c)
+createEndpoint :: Counter c => IpAddress -> Node c -> IO (Endpoint c)
 createEndpoint ip node = do
   endpoint <- Endpoint.create ip (webGateway node) (webPort node) (counter node)
   atomically $ modifyTVar' (endpoints node) (endpoint:)
