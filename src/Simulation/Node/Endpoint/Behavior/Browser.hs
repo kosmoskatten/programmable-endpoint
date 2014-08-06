@@ -26,22 +26,26 @@ browsePage resource = do
 processContent :: Hostname -> Port -> Text -> IO (Relations, Int)
 processContent hostname port resource =
   withConnection (openConnection hostname port) $ \conn -> do
-    (page, pageSize) <- receiveWithHandler conn contentAndSizeH resource
+    (page, pageSize) <- 
+      sendAndReceive conn receiveResponse contentAndSizeH resource
     let relations' = relations $ parseTagsT page
     fetchSizes <- 
-      mapM (receiveWithHandler conn sizeH) $ 
+      mapM (sendAndReceive conn receiveResponseRaw sizeH) $ 
         scripts relations' ++ stylesheets relations' ++ images relations'
     return (relations', pageSize + sum fetchSizes)
 
-receiveWithHandler :: Connection
-                   -> (Response -> Streams.InputStream BS.ByteString -> IO a)
-                   -> Text
-                   -> IO a
-receiveWithHandler conn handler resource = do
+sendAndReceive :: Connection
+               -> (Connection 
+                   -> (Response -> 
+                       Streams.InputStream BS.ByteString -> IO a) -> IO a)
+               -> (Response -> Streams.InputStream BS.ByteString -> IO a)
+               -> Text
+               -> IO a
+sendAndReceive conn receive handler resource = do
   request <- buildRequest $ http GET (encodeUtf8 resource)
   sendRequest conn request emptyBody
-  receiveResponse conn handler
-
+  receive conn handler
+  
 contentAndSizeH :: Response
                 -> Streams.InputStream BS.ByteString
                 -> IO (BS.ByteString, Int)
