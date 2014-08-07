@@ -25,6 +25,8 @@ import Control.Exception (AsyncException (..), handle, throwIO)
 import Control.Monad (void, when)
 import Data.List (delete)
 import Data.Text (Text)
+import Network.Socket (SockAddr)
+import Network.Http.Client (toSockAddrIPv4)
 import Simulation.Node.Counter
 import qualified Simulation.Node.Counter as Counter
 import Simulation.Node.Endpoint.Behavior
@@ -51,12 +53,12 @@ instance Show c => Show (BehaviorDesc c) where
 
 -- | An endpoint instance descriptor.
 data Endpoint c =
-  Endpoint { ipAddress      :: !IpAddress
-           , webGateway     :: !Hostname
+  Endpoint { webGateway     :: !Hostname
            , webPort        :: !Port
            , nodeCounter    :: TVar c             
            , behaviors      :: TVar [BehaviorDesc c]
            , counter        :: TVar c
+           , ipAddress      :: !SockAddr
            }
   deriving Eq
 
@@ -64,8 +66,9 @@ data Endpoint c =
 create :: Counter c =>
           IpAddress -> Hostname -> Port -> TVar c -> IO (Endpoint c)
 create ip gateway port nodeCounter' =
-  Endpoint ip gateway port nodeCounter' <$> newTVarIO []
-                                        <*> newTVarIO Counter.empty
+  Endpoint gateway port nodeCounter' <$> newTVarIO []
+                                     <*> newTVarIO Counter.empty
+                                     <*> toSockAddrIPv4 ip
 
 -- | Reset an endpoint instance by removing all behaviors.
 reset :: (Eq c, Counter c) => Endpoint c -> IO ()

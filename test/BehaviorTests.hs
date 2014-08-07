@@ -6,6 +6,9 @@ module BehaviorTests
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
+import Control.Applicative
+import Network.Socket
+import Network.BSD
 import Simulation.Node.Counter
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
@@ -64,7 +67,7 @@ stepStateAction = do
 getStateAction :: Behavior TestCounter TestState TestState
 getStateAction = get
 
-selfIpAddress' :: Behavior TestCounter TestState String
+selfIpAddress' :: Behavior TestCounter TestState SockAddr
 selfIpAddress' = selfIpAddress
 
 webGateway' :: Behavior TestCounter TestState Hostname
@@ -77,7 +80,7 @@ webPort' = webPort
 -- retured back from runBehaviorTest.
 sloganShallBeReturnedBack :: Assertion
 sloganShallBeReturnedBack = do
-  (slogan, _, _) <- runBehaviorTest emptyAction makeApiParam
+  (slogan, _, _) <- runBehaviorTest emptyAction =<< makeApiParam
   assertEqual "Shall be equal"
               "TestSlogan" slogan
 
@@ -85,7 +88,7 @@ sloganShallBeReturnedBack = do
 -- from runBehaviorTest.
 unitShallBeReturnedBack :: Assertion
 unitShallBeReturnedBack = do
-  (_, unit, _) <- runBehaviorTest emptyAction makeApiParam
+  (_, unit, _) <- runBehaviorTest emptyAction =<< makeApiParam
   assertEqual "Shall be equal"
               () unit
 
@@ -93,7 +96,7 @@ unitShallBeReturnedBack = do
 -- is returned back from runBehaviorTest.
 initialStateShallBeReturnedBack :: Assertion
 initialStateShallBeReturnedBack = do
-  (_, _, initialState) <- runBehaviorTest emptyAction makeApiParam
+  (_, _, initialState) <- runBehaviorTest emptyAction =<< makeApiParam
   assertEqual "Shall be equal"
               InitialState initialState
 
@@ -101,7 +104,7 @@ initialStateShallBeReturnedBack = do
 -- stepped state is returned back from runBehaviorTest.
 steppedStateShallBeReturnedBack :: Assertion
 steppedStateShallBeReturnedBack = do
-  (_, _, steppedState) <- runBehaviorTest stepStateAction makeApiParam
+  (_, _, steppedState) <- runBehaviorTest stepStateAction =<< makeApiParam
   assertEqual "Shall be equal"
               SteppedState steppedState
 
@@ -109,36 +112,41 @@ steppedStateShallBeReturnedBack = do
 -- sure that the state is retured as a return value.
 initialStateShallBeReturnedBackAsValue :: Assertion
 initialStateShallBeReturnedBackAsValue = do
-  (_, initialState, _) <- runBehaviorTest getStateAction makeApiParam
+  (_, initialState, _) <- runBehaviorTest getStateAction =<< makeApiParam
   assertEqual "Shall be equal"
               InitialState initialState
 
 -- | Test that selfIpAddress return the value from api params.
 selfIpAddressShallReturnApiParamValue :: Assertion
 selfIpAddressShallReturnApiParamValue = do
-  (_, ipAddress, _) <- runBehaviorTest selfIpAddress' makeApiParam
+  addr <- localhost
+  (_, ipAddress, _) <- runBehaviorTest selfIpAddress' =<< makeApiParam
   assertEqual "Shall be equal"
-              localhost ipAddress
+              addr ipAddress
 
 -- | Test that webGateway return the value from api params.
 webGatewayShallReturnApiParamValue :: Assertion
 webGatewayShallReturnApiParamValue = do
-  (_, ipGateway, _) <- runBehaviorTest webGateway' makeApiParam
+  (_, ipGateway, _) <- runBehaviorTest webGateway' =<< makeApiParam
   assertEqual "Shall be equal"
               gateway ipGateway
 
 -- | Test that webPort return the value from api params.
 webPortShallReturnApiParamValue :: Assertion
 webPortShallReturnApiParamValue = do
-  (_, gatewayPort, _) <- runBehaviorTest webPort' makeApiParam
+  (_, gatewayPort, _) <- runBehaviorTest webPort' =<< makeApiParam
   assertEqual "Shall be equal"
               port gatewayPort
 
-makeApiParam :: BehaviorApiParam c
-makeApiParam = BehaviorApiParam localhost gateway port []
+makeApiParam :: IO (BehaviorApiParam c)
+makeApiParam = do
+  addr <- localhost
+  return $ BehaviorApiParam addr gateway port []
       
-localhost :: String
-localhost = "127.0.0.1"
+localhost :: IO SockAddr
+localhost =
+  SockAddrInet aNY_PORT <$>
+    head . hostAddresses <$> getHostByName "127.0.0.1"
 
 gateway :: Hostname
 gateway = "192.168.1.100"

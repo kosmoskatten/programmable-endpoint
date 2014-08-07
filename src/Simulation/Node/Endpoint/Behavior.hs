@@ -31,6 +31,7 @@ import Control.Monad.State (StateT, runStateT)
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.State.Class (MonadState, get, put)
 import Data.Text (Text)
+import Network.Socket (SockAddr)
 import Network.Http.Client (Hostname, Port)
 import Simulation.Node.Counter (Counter (..))
 import System.Random (randomRIO)
@@ -44,7 +45,7 @@ newtype Behavior c s a =
 
 -- | Record with api parameters for the execution of the Behavior monad.
 data BehaviorApiParam c =
-  BehaviorApiParam { selfIpAddress_ :: !String
+  BehaviorApiParam { selfIpAddress_ :: !SockAddr
                    , webGateway_    :: !Hostname
                    , webPort_       :: !Port
                    , counters_      :: ![TVar c] }
@@ -73,7 +74,7 @@ runBehaviorTest action param = do
   return (slogan, result, state)
 
 -- | Fetch own's ip address.
-selfIpAddress :: (Counter c, BehaviorState s) => Behavior c s String
+selfIpAddress :: (Counter c, BehaviorState s) => Behavior c s SockAddr
 selfIpAddress = selfIpAddress_ <$> ask
 
 -- | Fetch the gateway ip address to use.

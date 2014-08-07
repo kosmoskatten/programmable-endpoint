@@ -7,6 +7,7 @@ import Control.DeepSeq (($!!))
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.ByteString.Char8 as BS
+import Network.Socket (SockAddr)
 import Network.Http.Client
 import Simulation.Node.Counter (Counter)
 import Simulation.Node.Endpoint.Behavior
@@ -17,15 +18,16 @@ import Text.HTML.TagSoup.Fast (parseTagsT)
 browsePage :: (Counter c, BehaviorState s) =>
               Text -> Behavior c s [Text]
 browsePage resource = do
-  gateway           <- webGateway
-  port              <- webPort
-  (relations', size) <- liftIO $ processContent gateway port resource
+  addr               <- selfIpAddress
+  gateway            <- webGateway
+  port               <- webPort
+  (relations', size) <- liftIO $ processContent addr gateway port resource
   updateBytesReceived size
   return $!! links relations'
 
-processContent :: Hostname -> Port -> Text -> IO (Relations, Int)
-processContent hostname port resource =
-  withConnection (openConnection hostname port) $ \conn -> do
+processContent :: SockAddr -> Hostname -> Port -> Text -> IO (Relations, Int)
+processContent addr hostname port resource =
+  withConnection (openBoundConnection (Just addr) hostname port) $ \conn -> do
     (page, pageSize) <- 
       sendAndReceive conn receiveResponse contentAndSizeH resource
     let relations' = relations $ parseTagsT page
