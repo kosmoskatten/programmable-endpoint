@@ -20,6 +20,8 @@ library
   exposed-modules:     Simulation.Node
                        , Simulation.Node.Endpoint
                        , Simulation.Node.Counter
+                       , Simulation.Node.SystemCounter
+                       , Simulation.Node.Endpoint.AppCounter
                        , Simulation.Node.Endpoint.Behavior
                        , Simulation.Node.Endpoint.Behavior.Browser
                        , Simulation.Node.Service.Http
