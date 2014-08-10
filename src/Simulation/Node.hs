@@ -27,9 +27,10 @@ import Control.Concurrent.STM
   )
 import Control.Monad (when)
 import Data.List (delete)
-import Simulation.Node.Counter
-import qualified Simulation.Node.Counter as Counter
-import Simulation.Node.Endpoint hiding (counter)
+import Simulation.Node.SystemCounter
+import qualified Simulation.Node.SystemCounter as SC
+import Simulation.Node.Endpoint
+import Simulation.Node.Endpoint.AppCounter (AppCounter)
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior (Hostname, Port)
 import Simulation.Node.Service.Http (Service, as, activate)
@@ -39,30 +40,31 @@ data Node c =
   Node { webGateway   :: !Hostname
        , webPort      :: !Port
        , endpoints    :: TVar [Endpoint c]
-       , counter      :: TVar c 
+       , counter      :: TVar SystemCounter
        , httpServices :: TMVar (Async ())}
   deriving Eq
 
 -- | Create a node instance.
-create :: Counter c => Hostname -> Port -> IO (Node c)
+create :: AppCounter c => Hostname -> Port -> IO (Node c)
 create gateway port = Node gateway port <$> newTVarIO []
-                                        <*> newTVarIO Counter.empty
+                                        <*> newTVarIO SC.create
                                         <*> newEmptyTMVarIO
 
 -- | Create an endpoint instance.
-createEndpoint :: Counter c => IpAddress -> Node c -> IO (Endpoint c)
+createEndpoint :: AppCounter c => IpAddress -> Node c -> IO (Endpoint c)
 createEndpoint ip node = do
   endpoint <- Endpoint.create ip (webGateway node) (webPort node) (counter node)
   atomically $ modifyTVar' (endpoints node) (endpoint:)
   return endpoint
 
 -- | Remove an endpoint from the node.
-removeEndpoint :: (Eq c, Counter c) => Endpoint c -> Node c -> IO ()
+removeEndpoint :: (Eq c, AppCounter c) => Endpoint c -> Node c -> IO ()
 removeEndpoint endpoint node = do
   isDeleted <- atomically $ maybeDelete endpoint (endpoints node)
   when isDeleted $ reset endpoint
 
-maybeDelete :: (Eq c, Counter c) => Endpoint c -> TVar [Endpoint c] -> STM Bool
+maybeDelete :: (Eq c, AppCounter c) =>
+               Endpoint c -> TVar [Endpoint c] -> STM Bool
 maybeDelete endpoint endpoints' = do
   xs <- readTVar endpoints'
   if endpoint `elem` xs then do

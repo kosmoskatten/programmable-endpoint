@@ -1,6 +1,6 @@
 module Simulation.Node.Endpoint
-       ( Endpoint (counter)
-       , BehaviorDesc (theSlogan, theCounter)
+       ( Endpoint (epCounter)
+       , BehaviorDesc (theSlogan, theSystemCounter, theAppCounter)
        , IpAddress
        , Simulation.Node.Endpoint.create
        , reset
@@ -27,8 +27,10 @@ import Data.List (delete)
 import Data.Text (Text)
 import Network.Socket (SockAddr)
 import Network.Http.Client (toSockAddrIPv4)
-import Simulation.Node.Counter
-import qualified Simulation.Node.Counter as Counter
+import Simulation.Node.SystemCounter
+import qualified Simulation.Node.SystemCounter as SC
+import Simulation.Node.Endpoint.AppCounter
+import qualified Simulation.Node.Endpoint.AppCounter as AC
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
@@ -43,9 +45,10 @@ type IpAddress = String
 
 -- | A descriptor of an installed behavior.
 data BehaviorDesc c =
-  BehaviorDesc { theSlogan   :: !Text
-               , theCounter  :: TVar c
-               , theThread   :: Async () }
+  BehaviorDesc { theSlogan        :: !Text
+               , theSystemCounter :: TVar SystemCounter
+               , theAppCounter    :: TVar c
+               , theThread        :: Async () }
   deriving Eq
 
 instance Show c => Show (BehaviorDesc c) where
@@ -55,48 +58,50 @@ instance Show c => Show (BehaviorDesc c) where
 data Endpoint c =
   Endpoint { webGateway     :: !Hostname
            , webPort        :: !Port
-           , nodeCounter    :: TVar c             
+           , nodeCounter    :: TVar SystemCounter             
            , behaviors      :: TVar [BehaviorDesc c]
-           , counter        :: TVar c
+           , epCounter      :: TVar SystemCounter
            , ipAddress      :: !SockAddr
            }
   deriving Eq
 
 -- | Create an endpoint instance.
-create :: Counter c =>
-          IpAddress -> Hostname -> Port -> TVar c -> IO (Endpoint c)
+create :: AppCounter c =>
+          IpAddress -> Hostname -> Port -> TVar SystemCounter-> IO (Endpoint c)
 create ip gateway port nodeCounter' =
   Endpoint gateway port nodeCounter' <$> newTVarIO []
-                                     <*> newTVarIO Counter.empty
+                                     <*> newTVarIO SC.create
                                      <*> toSockAddrIPv4 ip
 
 -- | Reset an endpoint instance by removing all behaviors.
-reset :: (Eq c, Counter c) => Endpoint c -> IO ()
+reset :: (Eq c, AppCounter c) => Endpoint c -> IO ()
 reset endpoint = do
   behaviors' <- readTVarIO (behaviors endpoint)
   mapM_ (removeBehavior endpoint) behaviors'
 
 -- | Add a behavior to the endpoint.
-addBehavior :: (Counter c, BehaviorState s) =>
+addBehavior :: (AppCounter c, BehaviorState s) =>
                Behavior c s () -> Endpoint c -> IO (BehaviorDesc c)
 addBehavior action endpoint = do
   (slogan, state) <- fetch
-  behaviorCounter <- newTVarIO Counter.empty
+  behaviorCounter <- newTVarIO SC.create
+  appCounter      <- newTVarIO AC.create
   let params = BehaviorApiParam (ipAddress endpoint)
                                 (webGateway endpoint)
                                 (webPort endpoint)
                                 [ nodeCounter endpoint
-                                , counter endpoint
+                                , epCounter endpoint
                                 , behaviorCounter ]
+                                appCounter
   thread <- async $ supervise action params state
-  let behaviorDesc = BehaviorDesc slogan behaviorCounter thread
+  let behaviorDesc = BehaviorDesc slogan behaviorCounter appCounter thread
   atomically $ modifyTVar' (behaviors endpoint) (behaviorDesc:)
   return behaviorDesc
                
 -- | Supervise a behavior. If the behavior is crashed the behavior
 -- shall be restarted by the supervisor. If the behavior is normally
 -- terminated no action is taken.
-supervise :: (Counter c, BehaviorState s) =>
+supervise :: (AppCounter c, BehaviorState s) =>
               Behavior c s () -> BehaviorApiParam c -> s -> IO ()
 supervise action params state = do
   task <- async $ runBehavior action params state
@@ -119,14 +124,14 @@ terminate task e =
     _            -> throwIO e
 
 -- | Remove and terminate a behavior from the endpoint.
-removeBehavior :: (Eq c, Counter c) => Endpoint c -> BehaviorDesc c -> IO ()
+removeBehavior :: (Eq c, AppCounter c) => Endpoint c -> BehaviorDesc c -> IO ()
 removeBehavior endpoint behavior = do
   isDeleted <- atomically $ maybeDelete behavior (behaviors endpoint)
   when isDeleted $ do
     cancel (theThread behavior)
     void $ waitCatch (theThread behavior)
 
-maybeDelete :: (Eq c, Counter c) =>
+maybeDelete :: (Eq c, AppCounter c) =>
                BehaviorDesc c -> TVar [BehaviorDesc c] -> STM Bool
 maybeDelete behavior behaviors' = do
   xs <- readTVar behaviors'

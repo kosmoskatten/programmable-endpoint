@@ -19,7 +19,6 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Simulation.Node
                        , Simulation.Node.Endpoint
-                       , Simulation.Node.Counter
                        , Simulation.Node.SystemCounter
                        , Simulation.Node.Endpoint.AppCounter
                        , Simulation.Node.Endpoint.Behavior

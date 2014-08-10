@@ -3,10 +3,10 @@
 -- behavior. It will not automatically aggregate on other levels,
 -- i.e. node and endpoint level.
 module Simulation.Node.Endpoint.AppCounter
-       ( BehaviorCounter (create)
+       ( AppCounter (create)
        ) where
 
--- | A Behavior defined counter.
-class BehaviorCounter a where
+-- | An application defined counter.
+class AppCounter a where
   -- | Create a new and empty counter instance.
   create :: a
