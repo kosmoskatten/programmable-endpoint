@@ -7,9 +7,10 @@ import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit
 import Control.Applicative
+import Control.Concurrent.STM (newTVarIO)
 import Network.Socket
 import Network.BSD
-import Simulation.Node.Counter
+import Simulation.Node.Endpoint.AppCounter (AppCounter (..))
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorApiParam (..)
@@ -50,30 +51,28 @@ data TestState = InitialState | SteppedState
 instance BehaviorState TestState where
   fetch = return ("TestSlogan", InitialState)
 
-data TestCounter = TestCounter
+data Counter = Counter
 
-instance Counter TestCounter where
-  empty           = TestCounter
-  addReceived _ x = x
-  getReceived _   = 0
+instance AppCounter Counter where
+   create = Counter
 
-emptyAction :: Behavior TestCounter TestState ()
+emptyAction :: Behavior Counter TestState ()
 emptyAction = return ()
 
-stepStateAction :: Behavior TestCounter TestState ()
+stepStateAction :: Behavior Counter TestState ()
 stepStateAction = do
   put SteppedState
 
-getStateAction :: Behavior TestCounter TestState TestState
+getStateAction :: Behavior Counter TestState TestState
 getStateAction = get
 
-selfIpAddress' :: Behavior TestCounter TestState SockAddr
+selfIpAddress' :: Behavior Counter TestState SockAddr
 selfIpAddress' = selfIpAddress
 
-webGateway' :: Behavior TestCounter TestState Hostname
+webGateway' :: Behavior Counter TestState Hostname
 webGateway' = webGateway
 
-webPort' :: Behavior TestCounter TestState Port
+webPort' :: Behavior Counter TestState Port
 webPort' = webPort
 
 -- | Unit test with the empty action to make sure that the slogan is
@@ -138,10 +137,11 @@ webPortShallReturnApiParamValue = do
   assertEqual "Shall be equal"
               port gatewayPort
 
-makeApiParam :: IO (BehaviorApiParam c)
+makeApiParam :: IO (BehaviorApiParam Counter)
 makeApiParam = do
   addr <- localhost
-  return $ BehaviorApiParam addr gateway port []
+  c    <- newTVarIO Counter
+  return $ BehaviorApiParam addr gateway port [] c
       
 localhost :: IO SockAddr
 localhost =

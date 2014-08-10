@@ -23,7 +23,8 @@ import Test.HUnit
 import Data.Text ()
 import System.Random (randomRIO)
 import System.Timeout (timeout)
-import Simulation.Node.Counter
+import Simulation.Node.SystemCounter
+import qualified Simulation.Node.SystemCounter as SC
 import Simulation.Node.Endpoint
   ( BehaviorDesc (..)
   , create
@@ -33,6 +34,7 @@ import Simulation.Node.Endpoint
   , listAll
   )
 import qualified Simulation.Node.Endpoint as Endpoint
+import Simulation.Node.Endpoint.AppCounter (AppCounter (..))
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
@@ -73,30 +75,28 @@ data TestState = TestState {num :: !Int}
 instance BehaviorState TestState where
   fetch = ("TestSlogan",) <$> (TestState <$> randomRIO (minBound, maxBound))
 
-data TestCounter = TestCounter
+data Counter = Counter
   deriving (Eq, Show)
 
-instance Counter TestCounter where
-  empty           = TestCounter
-  addReceived _ x = x
-  getReceived _   = 0
+instance AppCounter Counter where
+  create = Counter
 
-emptyAction :: Behavior TestCounter TestState ()
+emptyAction :: Behavior Counter TestState ()
 emptyAction = return ()
 
-countingAction :: TVar Int -> Behavior TestCounter TestState ()
+countingAction :: TVar Int -> Behavior Counter TestState ()
 countingAction tvar =
   forever $ do
     liftIO $ atomically (modifyTVar tvar (+ 1))
     sleepMsec 10
 
-crashingAction :: TMVar Int -> Behavior TestCounter TestState ()
+crashingAction :: TMVar Int -> Behavior Counter TestState ()
 crashingAction tmvar = do
   num' <- num <$> get
   liftIO $ atomically (putTMVar tmvar num')
   liftIO $ print (1 `div` 0 :: Int)
 
-terminatingAction :: TMVar () -> Behavior TestCounter TestState ()
+terminatingAction :: TMVar () -> Behavior Counter TestState ()
 terminatingAction tmvar =
   liftIO $ atomically (putTMVar tmvar ())
 
@@ -106,7 +106,7 @@ shallBeDifferentEndpoints :: Assertion
 shallBeDifferentEndpoints = do
   c   <- nodeCounter
   ep1 <- (Endpoint.create localhost gateway port c)
-         :: IO (Endpoint.Endpoint TestCounter)
+         :: IO (Endpoint.Endpoint Counter)
   ep2 <- Endpoint.create "127.0.0.2" gateway port c
   assertBool "Shall be different" $ ep1 /= ep2
 
@@ -114,7 +114,7 @@ shallBeDifferentEndpoints = do
 shallBeDifferentReceipts :: Assertion
 shallBeDifferentReceipts = do
   c  <- nodeCounter
-  ep <- create localhost gateway port c
+  ep <- Endpoint.create localhost gateway port c
   r1 <- addBehavior emptyAction ep
   r2 <- addBehavior emptyAction ep
   assertBool "Shall be different" $ r1 /= r2
@@ -123,7 +123,7 @@ shallBeDifferentReceipts = do
 shallRunInItsOwnThread :: Assertion
 shallRunInItsOwnThread = do
   c  <- nodeCounter
-  ep <- create localhost gateway port c
+  ep <- Endpoint.create localhost gateway port c
   tvar <- newTVarIO 0
   maybeR <- timeout 100000 $ addBehavior (countingAction tvar) ep
   case maybeR of
@@ -136,7 +136,7 @@ shallRunInItsOwnThread = do
 shallStopWhenRemoved :: Assertion
 shallStopWhenRemoved = do
   c    <- nodeCounter
-  ep   <- create localhost gateway port c
+  ep   <- Endpoint.create localhost gateway port c
   tvar <- newTVarIO 0
   r    <- addBehavior (countingAction tvar) ep
   void $ removeBehavior ep r
@@ -147,7 +147,7 @@ shallStopWhenRemoved = do
 shallRestartWhenCrashed :: Assertion
 shallRestartWhenCrashed = do
   c     <- nodeCounter
-  ep    <- create localhost gateway port c
+  ep    <- Endpoint.create localhost gateway port c
   tmvar <- newEmptyTMVarIO
   void $ addBehavior (crashingAction tmvar) ep
   void $ atomically (takeTMVar tmvar) -- First start
@@ -161,7 +161,7 @@ shallRestartWhenCrashed = do
 shallNotRestartWhenTerminated :: Assertion
 shallNotRestartWhenTerminated = do
   c     <- nodeCounter
-  ep    <- create localhost gateway port c
+  ep    <- Endpoint.create localhost gateway port c
   tmvar <- newEmptyTMVarIO
   void $ addBehavior (terminatingAction tmvar) ep
   void $ atomically (takeTMVar tmvar)
@@ -175,7 +175,7 @@ shallNotRestartWhenTerminated = do
 shallGetTheSameInitialStateAtRestart :: Assertion
 shallGetTheSameInitialStateAtRestart = do
   c       <- nodeCounter
-  ep      <- create localhost gateway port c
+  ep      <- Endpoint.create localhost gateway port c
   tmvar   <- newEmptyTMVarIO
   void $ addBehavior (crashingAction tmvar) ep
   result  <- atomically (takeTMVar tmvar) -- First start
@@ -186,7 +186,7 @@ shallGetTheSameInitialStateAtRestart = do
 shallRemoveAllBehaviorsAtReset :: Assertion
 shallRemoveAllBehaviorsAtReset = do
   c     <- nodeCounter
-  ep    <- create localhost gateway port c
+  ep    <- Endpoint.create localhost gateway port c
   tvar1 <- newTVarIO 0
   tvar2 <- newTVarIO 0
   void $ addBehavior (countingAction tvar1) ep
@@ -201,7 +201,7 @@ shallRemoveAllBehaviorsAtReset = do
 shallListCorrectNumberOfBehaviors :: Assertion
 shallListCorrectNumberOfBehaviors = do
   c  <- nodeCounter
-  ep <- create localhost gateway port c
+  ep <- Endpoint.create localhost gateway port c
   assertEqual "Shall be empty"
                0 =<< length <$> listAll ep
   b1 <- addBehavior emptyAction ep
@@ -221,7 +221,7 @@ shallListCorrectNumberOfBehaviors = do
 shallListCorrectSlogan :: Assertion
 shallListCorrectSlogan = do
   c  <- nodeCounter
-  ep <- create localhost gateway port c
+  ep <- Endpoint.create localhost gateway port c
   void $ addBehavior emptyAction ep
   slogan <- theSlogan . head <$> listAll ep
   assertEqual "Shall be equal"
@@ -245,5 +245,5 @@ gateway = "192.168.100.1"
 port :: Port
 port = 8888
 
-nodeCounter :: Counter c => IO (TVar c)
-nodeCounter = newTVarIO empty
+nodeCounter :: IO (TVar SystemCounter)
+nodeCounter = newTVarIO SC.create

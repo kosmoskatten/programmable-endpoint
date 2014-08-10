@@ -19,13 +19,14 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node)
 import Simulation.Node
 import qualified Simulation.Node as Node
-import Simulation.Node.Counter (Counter (..))
+import Simulation.Node.SystemCounter (SystemCounter (bytesReceived))
 import Simulation.Node.Endpoint
 import qualified Simulation.Node.Endpoint as Endpoint
+import Simulation.Node.Endpoint.AppCounter (AppCounter (..))
 import Simulation.Node.Endpoint.Behavior
   ( Behavior
   , BehaviorState (..)
-  , updateBytesReceived
+  , receivedBytes
   , liftIO
   )
 import GHC.Int
@@ -45,24 +46,22 @@ data TestState = TestState
 instance BehaviorState TestState where
   fetch = return ("TestSlogan", TestState)
 
-data TestCounter = TestCounter Int64
-  deriving (Eq, Ord)
+data Counter = Counter
+  deriving (Eq, Show)
 
-instance Counter TestCounter where
-  empty                              = TestCounter 0
-  addReceived amount (TestCounter v) = TestCounter $ v + fromIntegral amount
-  getReceived (TestCounter v)        = v
+instance AppCounter Counter where
+  create = Counter
 
 -- | Simple behavior that is adding one to the bytes received counter
-addingBehavior :: TMVar () -> Behavior TestCounter TestState ()
+addingBehavior :: TMVar () -> Behavior Counter TestState ()
 addingBehavior sync = do
-  updateBytesReceived 1
+  receivedBytes 1
   liftIO $ putTMVarIO sync ()
 
 -- | Test that the node is listing the correct number of endpoints.
 shallListCorrectNumberOfEndpoints :: Assertion
 shallListCorrectNumberOfEndpoints = do
-  node <- (Node.create gateway port) :: IO (Node TestCounter)
+  node <- (Node.create gateway port) :: IO (Node Counter)
   assertEqual "Shall be empty"
               0 =<< length <$> Node.listAll node
   ep1 <- createEndpoint "127.0.0.1" node
@@ -88,9 +87,9 @@ shallUpdateCountersEqually = do
   b    <- addBehavior (addingBehavior sync) ep
   void $ takeTMVarIO sync
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theCounter b)
+              1 =<< getByteCount (Endpoint.theSystemCounter b)
   assertEqual "Endpoint counter shall be 1"
-              1 =<< getByteCount (Endpoint.counter ep)
+              1 =<< getByteCount (Endpoint.epCounter ep)
   assertEqual "Node counter shall be 1"
               1 =<< getByteCount (Node.counter node)
 
@@ -109,22 +108,22 @@ shallUpdateCountersHierarchally = do
   b4   <- addBehavior (addingBehavior s4) ep2
   mapM_ takeTMVarIO syncs
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theCounter b1)
+              1 =<< getByteCount (Endpoint.theSystemCounter b1)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theCounter b2)
+              1 =<< getByteCount (Endpoint.theSystemCounter b2)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theCounter b3)
+              1 =<< getByteCount (Endpoint.theSystemCounter b3)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theCounter b4)
+              1 =<< getByteCount (Endpoint.theSystemCounter b4)
   assertEqual "Endpoint counter shall be 2"
-              2 =<< getByteCount (Endpoint.counter ep1)
+              2 =<< getByteCount (Endpoint.epCounter ep1)
   assertEqual "Endpoint counter shall be 2"
-              2 =<< getByteCount (Endpoint.counter ep2)
+              2 =<< getByteCount (Endpoint.epCounter ep2)
   assertEqual "Node counter shall be 4"
               4 =<< getByteCount (Node.counter node)              
   
-getByteCount :: TVar TestCounter -> IO Int64
-getByteCount tvar = getReceived <$> readTVarIO tvar
+getByteCount :: TVar SystemCounter -> IO Int64
+getByteCount tvar = bytesReceived <$> readTVarIO tvar
 
 putTMVarIO :: TMVar a -> a -> IO ()
 putTMVarIO tmvar v = atomically $ putTMVar tmvar v
