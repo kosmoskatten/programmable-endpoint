@@ -1,6 +1,5 @@
 module Simulation.Node.Endpoint
-       ( Endpoint (epCounter)
-       , BehaviorDesc (theSlogan, theSystemCounter, theAppCounter)
+       ( Endpoint (counter)
        , IpAddress
        , Simulation.Node.Endpoint.create
        , reset
@@ -24,7 +23,6 @@ import Control.Concurrent.STM
 import Control.Exception (AsyncException (..), handle, throwIO)
 import Control.Monad (void, when)
 import Data.List (delete)
-import Data.Text (Text)
 import Network.Socket (SockAddr)
 import Network.Http.Client (toSockAddrIPv4)
 import Simulation.Node.SystemCounter
@@ -39,28 +37,18 @@ import Simulation.Node.Endpoint.Behavior
   , Port
   , runBehavior
   )
+import Simulation.Node.Endpoint.Behavior.Descriptor (Descriptor (..))
 import System.IO (stderr, hPrint)
 
 type IpAddress = String
-
--- | A descriptor of an installed behavior.
-data BehaviorDesc c =
-  BehaviorDesc { theSlogan        :: !Text
-               , theSystemCounter :: TVar SystemCounter
-               , theAppCounter    :: TVar c
-               , theThread        :: Async () }
-  deriving Eq
-
-instance Show c => Show (BehaviorDesc c) where
-  show desc = "BehaviorDesc { theSlogan = " ++ show (theSlogan desc) ++ "}"
 
 -- | An endpoint instance descriptor.
 data Endpoint c =
   Endpoint { webGateway     :: !Hostname
            , webPort        :: !Port
            , nodeCounter    :: TVar SystemCounter             
-           , behaviors      :: TVar [BehaviorDesc c]
-           , epCounter      :: TVar SystemCounter
+           , behaviors      :: TVar [Descriptor c]
+           , counter      :: TVar SystemCounter
            , ipAddress      :: !SockAddr
            }
   deriving Eq
@@ -81,20 +69,21 @@ reset endpoint = do
 
 -- | Add a behavior to the endpoint.
 addBehavior :: (AppCounter c, BehaviorState s) =>
-               Behavior c s () -> Endpoint c -> IO (BehaviorDesc c)
+               Behavior c s () -> Endpoint c -> IO (Descriptor c)
 addBehavior action endpoint = do
-  (slogan, state) <- fetch
-  behaviorCounter <- newTVarIO SC.create
-  appCounter      <- newTVarIO AC.create
+  (theSlogan, state) <- fetch
+  behaviorCounter    <- newTVarIO SC.create
+  theAppCounter      <- newTVarIO AC.create
   let params = BehaviorApiParam (ipAddress endpoint)
                                 (webGateway endpoint)
                                 (webPort endpoint)
                                 [ nodeCounter endpoint
-                                , epCounter endpoint
+                                , Simulation.Node.Endpoint.counter endpoint
                                 , behaviorCounter ]
-                                appCounter
-  thread <- async $ supervise action params state
-  let behaviorDesc = BehaviorDesc slogan behaviorCounter appCounter thread
+                                theAppCounter
+  theThread <- async $ supervise action params state
+  let behaviorDesc =
+        Descriptor theSlogan behaviorCounter theAppCounter theThread
   atomically $ modifyTVar' (behaviors endpoint) (behaviorDesc:)
   return behaviorDesc
                
@@ -124,15 +113,15 @@ terminate task e =
     _            -> throwIO e
 
 -- | Remove and terminate a behavior from the endpoint.
-removeBehavior :: (Eq c, AppCounter c) => Endpoint c -> BehaviorDesc c -> IO ()
+removeBehavior :: (Eq c, AppCounter c) => Endpoint c -> Descriptor c -> IO ()
 removeBehavior endpoint behavior = do
   isDeleted <- atomically $ maybeDelete behavior (behaviors endpoint)
   when isDeleted $ do
-    cancel (theThread behavior)
-    void $ waitCatch (theThread behavior)
+    cancel (thread behavior)
+    void $ waitCatch (thread behavior)
 
 maybeDelete :: (Eq c, AppCounter c) =>
-               BehaviorDesc c -> TVar [BehaviorDesc c] -> STM Bool
+               Descriptor c -> TVar [Descriptor c] -> STM Bool
 maybeDelete behavior behaviors' = do
   xs <- readTVar behaviors'
   if behavior `elem` xs then do
@@ -141,6 +130,6 @@ maybeDelete behavior behaviors' = do
     else return False
                 
 -- List all behavior descriptors.
-listAll :: Endpoint c -> IO [BehaviorDesc c]
+listAll :: Endpoint c -> IO [Descriptor c]
 listAll endpoint = readTVarIO (behaviors endpoint)
 

@@ -29,6 +29,7 @@ import Simulation.Node.Endpoint.Behavior
   , receivedBytes
   , liftIO
   )
+import qualified Simulation.Node.Endpoint.Behavior.Descriptor as Desc
 import GHC.Int
 
 suite :: Test.Framework.Test
@@ -87,9 +88,9 @@ shallUpdateCountersEqually = do
   b    <- addBehavior (addingBehavior sync) ep
   void $ takeTMVarIO sync
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theSystemCounter b)
+              1 =<< getByteCount (Desc.counter b)
   assertEqual "Endpoint counter shall be 1"
-              1 =<< getByteCount (Endpoint.epCounter ep)
+              1 =<< getByteCount (Endpoint.counter ep)
   assertEqual "Node counter shall be 1"
               1 =<< getByteCount (Node.counter node)
 
@@ -108,17 +109,17 @@ shallUpdateCountersHierarchally = do
   b4   <- addBehavior (addingBehavior s4) ep2
   mapM_ takeTMVarIO syncs
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theSystemCounter b1)
+              1 =<< getByteCount (Desc.counter b1)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theSystemCounter b2)
+              1 =<< getByteCount (Desc.counter b2)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theSystemCounter b3)
+              1 =<< getByteCount (Desc.counter b3)
   assertEqual "Behavior counter shall be 1"
-              1 =<< getByteCount (Endpoint.theSystemCounter b4)
+              1 =<< getByteCount (Desc.counter b4)
   assertEqual "Endpoint counter shall be 2"
-              2 =<< getByteCount (Endpoint.epCounter ep1)
+              2 =<< getByteCount (Endpoint.counter ep1)
   assertEqual "Endpoint counter shall be 2"
-              2 =<< getByteCount (Endpoint.epCounter ep2)
+              2 =<< getByteCount (Endpoint.counter ep2)
   assertEqual "Node counter shall be 4"
               4 =<< getByteCount (Node.counter node)              
   

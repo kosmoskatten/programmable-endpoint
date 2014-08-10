@@ -23,6 +23,7 @@ library
                        , Simulation.Node.Endpoint.AppCounter
                        , Simulation.Node.Endpoint.Behavior
                        , Simulation.Node.Endpoint.Behavior.Browser
+                       , Simulation.Node.Endpoint.Behavior.Descriptor
                        , Simulation.Node.Service.Http
                        , Simulation.Node.Service.Http.Server
   other-modules:       Simulation.Node.Endpoint.Internal.Relations

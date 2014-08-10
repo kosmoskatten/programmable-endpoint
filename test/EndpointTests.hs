@@ -26,9 +26,7 @@ import System.Timeout (timeout)
 import Simulation.Node.SystemCounter
 import qualified Simulation.Node.SystemCounter as SC
 import Simulation.Node.Endpoint
-  ( BehaviorDesc (..)
-  , create
-  , reset
+  ( reset
   , addBehavior
   , removeBehavior
   , listAll
@@ -44,6 +42,7 @@ import Simulation.Node.Endpoint.Behavior
   , liftIO
   , sleepMsec
   )
+import Simulation.Node.Endpoint.Behavior.Descriptor (Descriptor (..))
 
 suite :: Test.Framework.Test
 suite = testGroup "Endpoint tests"
@@ -223,9 +222,9 @@ shallListCorrectSlogan = do
   c  <- nodeCounter
   ep <- Endpoint.create localhost gateway port c
   void $ addBehavior emptyAction ep
-  slogan <- theSlogan . head <$> listAll ep
+  theSlogan <- slogan . head <$> listAll ep
   assertEqual "Shall be equal"
-              "TestSlogan" slogan
+              "TestSlogan" theSlogan
   
 -- | Check if a TVar protected counter is progressing during 1/10th of
 -- a second.

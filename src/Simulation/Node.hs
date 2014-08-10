@@ -29,7 +29,7 @@ import Control.Monad (when)
 import Data.List (delete)
 import Simulation.Node.SystemCounter
 import qualified Simulation.Node.SystemCounter as SC
-import Simulation.Node.Endpoint
+import Simulation.Node.Endpoint hiding (counter)
 import Simulation.Node.Endpoint.AppCounter (AppCounter)
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.Behavior (Hostname, Port)
