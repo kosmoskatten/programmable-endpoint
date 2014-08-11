@@ -37,9 +37,9 @@ suite = testGroup "Node tests"
         [ testCase "Shall list correct number of endpoints"
                    shallListCorrectNumberOfEndpoints
         , testCase "All counters shall be updated equally"
-                   shallUpdateCountersEqually
-        , testCase "Counter shall be updated hierarchally"
-                   shallUpdateCountersHierarchally
+                   shallUpdateBytesReceivedEqually
+        , testCase "Counters shall be updated hierarchally"
+                   shallUpdateBytesReceivedHierarchally
         ]
 
 data TestState = TestState
@@ -80,8 +80,8 @@ shallListCorrectNumberOfEndpoints = do
 
 -- | Test that counters on node, endpoint and behavior level is
 -- updated equally.
-shallUpdateCountersEqually :: Assertion
-shallUpdateCountersEqually = do
+shallUpdateBytesReceivedEqually :: Assertion
+shallUpdateBytesReceivedEqually = do
   sync <- newEmptyTMVarIO
   node <- Node.create gateway port
   ep   <- createEndpoint "127.0.0.1" node
@@ -97,8 +97,8 @@ shallUpdateCountersEqually = do
 -- | Test that counters on node, endpoints and behaviors are updated
 -- hierarchally. I.e. that counter values are accumulated on node and
 -- endpoint levels.
-shallUpdateCountersHierarchally :: Assertion
-shallUpdateCountersHierarchally = do
+shallUpdateBytesReceivedHierarchally :: Assertion
+shallUpdateBytesReceivedHierarchally = do
   syncs@[s1, s2, s3, s4] <- replicateM 4 newEmptyTMVarIO
   node <- Node.create gateway port
   ep1  <- createEndpoint "127.0.0.1" node
