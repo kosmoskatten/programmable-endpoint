@@ -4,6 +4,7 @@ module NodeTests
        ) where
 
 import Control.Applicative ((<$>))
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
   ( TVar
   , TMVar
@@ -19,7 +20,7 @@ import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit hiding (Node)
 import Simulation.Node
 import qualified Simulation.Node as Node
-import Simulation.Node.SystemCounter (SystemCounter (bytesReceived))
+import Simulation.Node.SystemCounter (SystemCounter (..))
 import Simulation.Node.Endpoint
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.AppCounter (AppCounter (..))
@@ -40,6 +41,8 @@ suite = testGroup "Node tests"
                    shallUpdateBytesReceivedEqually
         , testCase "Counters shall be updated hierarchally"
                    shallUpdateBytesReceivedHierarchally
+        , testCase "All counters shall be updated qually"
+                   shallUpdateActiveBehaviorsEqually
         ]
 
 data TestState = TestState
@@ -58,6 +61,12 @@ addingBehavior :: TMVar () -> Behavior Counter TestState ()
 addingBehavior sync = do
   receivedBytes 1
   liftIO $ putTMVarIO sync ()
+
+-- | Simple behavior that is synching with the test case.
+synchingBehavior :: TMVar () -> TMVar () -> Behavior Counter TestState ()
+synchingBehavior sync1 sync2 = do
+  liftIO $ putTMVarIO sync1 ()
+  liftIO $ takeTMVarIO sync2
 
 -- | Test that the node is listing the correct number of endpoints.
 shallListCorrectNumberOfEndpoints :: Assertion
@@ -78,7 +87,7 @@ shallListCorrectNumberOfEndpoints = do
   assertEqual "Shall be empty"
               0 =<< length <$> Node.listAll node
 
--- | Test that counters on node, endpoint and behavior level is
+-- | Test that counters on node, endpoint and behavior level are
 -- updated equally.
 shallUpdateBytesReceivedEqually :: Assertion
 shallUpdateBytesReceivedEqually = do
@@ -122,9 +131,36 @@ shallUpdateBytesReceivedHierarchally = do
               2 =<< getByteCount (Endpoint.counter ep2)
   assertEqual "Node counter shall be 4"
               4 =<< getByteCount (Node.counter node)              
-  
+
+-- | Test that counters on node, endpoint and behavior level are
+-- updated equally.
+shallUpdateActiveBehaviorsEqually :: Assertion
+shallUpdateActiveBehaviorsEqually = do
+  [sync1, sync2] <- replicateM 2 newEmptyTMVarIO
+  node <- Node.create gateway port
+  ep   <- createEndpoint "127.0.0.1" node
+  b    <- addBehavior (synchingBehavior sync1 sync2) ep
+  takeTMVarIO sync1 -- Behavior is up.
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getActiveBehaviors (Desc.counter b)
+  assertEqual "Endpoint counter shall be 1"
+              1 =<< getActiveBehaviors (Endpoint.counter ep)
+  assertEqual "Node counter shall be 1"
+              1 =<< getActiveBehaviors (Node.counter node)  
+  putTMVarIO sync2 () -- Terminate the behavior and give it some time.
+  threadDelay $ 1000 * 100
+  assertEqual "Behavior counter shall be 0"
+              0 =<< getActiveBehaviors (Desc.counter b)
+  assertEqual "Endpoint counter shall be 0"
+              0 =<< getActiveBehaviors (Endpoint.counter ep)
+  assertEqual "Node counter shall be 0"
+              0 =<< getActiveBehaviors (Node.counter node)
+
 getByteCount :: TVar SystemCounter -> IO Int64
 getByteCount tvar = bytesReceived <$> readTVarIO tvar
+
+getActiveBehaviors :: TVar SystemCounter -> IO Int64
+getActiveBehaviors tvar = activeBehaviors <$> readTVarIO tvar
 
 putTMVarIO :: TMVar a -> a -> IO ()
 putTMVarIO tmvar v = atomically $ putTMVar tmvar v
@@ -137,5 +173,3 @@ gateway = "192.168.100.1"
 
 port :: Port
 port = 8888
-
-        
