@@ -94,8 +94,10 @@ supervise :: (AppCounter c, BehaviorState s) =>
               Behavior c s () -> BehaviorApiParam c -> s -> IO ()
 supervise action params state = do
   task <- async $ runBehavior action params state
+  bulk incActiveBehaviors (systemCounters_ params)
   terminate task `handle` do
     status <- waitCatch task
+    bulk decActiveBehaviors (systemCounters_ params)
     case status of
       Left cause -> do
         hPrint stderr cause

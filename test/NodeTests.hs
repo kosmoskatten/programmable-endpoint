@@ -41,7 +41,7 @@ suite = testGroup "Node tests"
                    shallUpdateBytesReceivedEqually
         , testCase "Counters shall be updated hierarchally"
                    shallUpdateBytesReceivedHierarchally
-        , testCase "All counters shall be updated qually"
+        , testCase "All counters shall be updated equally"
                    shallUpdateActiveBehaviorsEqually
         ]
 
