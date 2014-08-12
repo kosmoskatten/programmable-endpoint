@@ -43,6 +43,8 @@ suite = testGroup "Node tests"
                    shallUpdateBytesReceivedHierarchally
         , testCase "All counters shall be updated equally"
                    shallUpdateActiveBehaviorsEqually
+        , testCase "All counters shall be updated equally"
+                   shallUpdateBehaviorRestartsEqually
         ]
 
 data TestState = TestState
@@ -67,6 +69,13 @@ synchingBehavior :: TMVar () -> TMVar () -> Behavior Counter TestState ()
 synchingBehavior sync1 sync2 = do
   liftIO $ putTMVarIO sync1 ()
   liftIO $ takeTMVarIO sync2
+
+-- | Simple behavior that is crashing in synch with the test case :-)
+synchingCrashBehavior :: TMVar () -> TMVar () -> Behavior Counter TestState ()
+synchingCrashBehavior sync1 sync2 = do
+  liftIO $ putTMVarIO sync1 ()
+  liftIO $ takeTMVarIO sync2
+  liftIO $ print (1 `div` 0 :: Int)  
 
 -- | Test that the node is listing the correct number of endpoints.
 shallListCorrectNumberOfEndpoints :: Assertion
@@ -156,11 +165,38 @@ shallUpdateActiveBehaviorsEqually = do
   assertEqual "Node counter shall be 0"
               0 =<< getActiveBehaviors (Node.counter node)
 
+-- | Test that counters on node, endpoint and behavior level are
+-- updated equally.
+shallUpdateBehaviorRestartsEqually :: Assertion
+shallUpdateBehaviorRestartsEqually = do
+  [sync1, sync2] <- replicateM 2 newEmptyTMVarIO
+  node <- Node.create gateway port
+  ep   <- createEndpoint "127.0.0.1" node
+  b    <- addBehavior (synchingCrashBehavior sync1 sync2) ep
+  takeTMVarIO sync1 -- Behavior is up.
+  assertEqual "Behavior counter shall be 0"
+              0 =<< getBehaviorRestarts (Desc.counter b)
+  assertEqual "Endpoint counter shall be 0"
+              0 =<< getBehaviorRestarts (Endpoint.counter ep)
+  assertEqual "Node counter shall be 0"
+              0 =<< getBehaviorRestarts (Node.counter node)
+  putTMVarIO sync2 () -- Make it crash ...
+  takeTMVarIO sync1 -- And wait for it to come up again.
+  assertEqual "Behavior counter shall be 1"
+              1 =<< getBehaviorRestarts (Desc.counter b)
+  assertEqual "Endpoint counter shall be 1"
+              1 =<< getBehaviorRestarts (Endpoint.counter ep)
+  assertEqual "Node counter shall be 1"
+              1 =<< getBehaviorRestarts (Node.counter node)
+
 getByteCount :: TVar SystemCounter -> IO Int64
 getByteCount tvar = bytesReceived <$> readTVarIO tvar
 
 getActiveBehaviors :: TVar SystemCounter -> IO Int64
 getActiveBehaviors tvar = activeBehaviors <$> readTVarIO tvar
+
+getBehaviorRestarts :: TVar SystemCounter -> IO Int64
+getBehaviorRestarts tvar = behaviorRestarts <$> readTVarIO tvar
 
 putTMVarIO :: TMVar a -> a -> IO ()
 putTMVarIO tmvar v = atomically $ putTMVar tmvar v
