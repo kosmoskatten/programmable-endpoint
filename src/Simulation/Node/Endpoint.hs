@@ -26,6 +26,12 @@ import Data.List (delete)
 import Network.Socket (SockAddr)
 import Network.Http.Client (toSockAddrIPv4)
 import Simulation.Node.SystemCounter
+  ( SystemCounter
+  , bulk
+  , incActiveBehaviors
+  , decActiveBehaviors
+  , incBehaviorRestarts
+  )
 import qualified Simulation.Node.SystemCounter as SC
 import Simulation.Node.Endpoint.AppCounter
 import qualified Simulation.Node.Endpoint.AppCounter as AC
@@ -44,12 +50,12 @@ type IpAddress = String
 
 -- | An endpoint instance descriptor.
 data Endpoint c =
-  Endpoint { webGateway     :: !Hostname
-           , webPort        :: !Port
-           , nodeCounter    :: TVar SystemCounter             
-           , behaviors      :: TVar [Descriptor c]
-           , counter      :: TVar SystemCounter
-           , ipAddress      :: !SockAddr
+  Endpoint { webGateway  :: !Hostname
+           , webPort     :: !Port
+           , nodeCounter :: TVar SystemCounter             
+           , behaviors   :: TVar [Descriptor c]
+           , counter     :: TVar SystemCounter
+           , ipAddress   :: !SockAddr
            }
   deriving Eq
 
@@ -101,6 +107,7 @@ supervise action params state = do
     case status of
       Left cause -> do
         hPrint stderr cause
+        bulk incBehaviorRestarts (systemCounters_ params)
         supervise action params state
       _      -> return ()
 
