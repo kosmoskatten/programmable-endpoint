@@ -14,6 +14,7 @@ module Simulation.Node.Endpoint.Behavior
        , webGateway
        , webPort
        , systemCounters
+       , appCounter         
        , sleepSec
        , sleepMsec
        , sleepUsec
@@ -88,9 +89,14 @@ webGateway = webGateway_ <$> ask
 webPort :: (AppCounter c, BehaviorState s) => Behavior c s Port
 webPort = webPort_ <$> ask
 
+-- | Fetch the system counters.
 systemCounters :: (AppCounter c, BehaviorState s) =>
                   Behavior c s [TVar SystemCounter]
 systemCounters = systemCounters_ <$> ask
+
+-- | Fetch the app counter.
+appCounter :: (AppCounter c, BehaviorState s) => Behavior c s (TVar c)
+appCounter = appCounter_ <$> ask
 
 -- | Sleep the requested number of seconds.
 sleepSec :: (AppCounter c, BehaviorState s) => Int -> Behavior c s ()
