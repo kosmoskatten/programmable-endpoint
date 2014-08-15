@@ -82,19 +82,21 @@ shallListCorrectNumberOfEndpoints :: Assertion
 shallListCorrectNumberOfEndpoints = do
   node <- (Node.create gateway port) :: IO (Node Counter)
   assertEqual "Shall be empty"
-              0 =<< length <$> Node.listAll node
+              0 =<< length <$> endpoints' node
   ep1 <- createEndpoint "127.0.0.1" node
   assertEqual "Shall be 1"
-              1 =<< length <$> Node.listAll node
+              1 =<< length <$> endpoints' node
   ep2 <- createEndpoint "127.0.0.2" node
   assertEqual "Shall be 2"
-              2 =<< length <$> Node.listAll node
+              2 =<< length <$> endpoints' node
   removeEndpoint ep1 node
   assertEqual "Shall be 1"
-              1 =<< length <$> Node.listAll node
+              1 =<< length <$> endpoints' node
   removeEndpoint ep2 node
   assertEqual "Shall be empty"
-              0 =<< length <$> Node.listAll node
+              0 =<< length <$> endpoints' node
+  where
+    endpoints' = readTVarIO . endpoints
 
 -- | Test that counters on node, endpoint and behavior level are
 -- updated equally.

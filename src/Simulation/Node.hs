@@ -1,11 +1,10 @@
 module Simulation.Node
-       ( Node (counter)
+       ( Node (endpoints, counter)
        , Hostname
        , Port
        , Simulation.Node.create
        , createEndpoint
        , removeEndpoint
-       , Simulation.Node.listAll
        , activateHttpServices
        , as
        ) where
@@ -71,10 +70,6 @@ maybeDelete endpoint endpoints' = do
     writeTVar endpoints' (endpoint `delete` xs)
     return True
     else return False
-
--- | List all endpoints.
-listAll :: Node c -> IO [Endpoint c]
-listAll node = readTVarIO (endpoints node)
 
 -- | Activate http services in a separate thread.
 activateHttpServices :: Node c -> Int -> [Service ()] -> IO ()
