@@ -20,7 +20,6 @@ import Control.Concurrent.STM
   , newTVarIO
   , newEmptyTMVarIO
   , readTVar
-  , readTVarIO
   , writeTVar
   , putTMVar
   )
