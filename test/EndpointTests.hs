@@ -26,10 +26,10 @@ import System.Timeout (timeout)
 import Simulation.Node.SystemCounter
 import qualified Simulation.Node.SystemCounter as SC
 import Simulation.Node.Endpoint
-  ( reset
+  ( Endpoint (behaviors)
+  , reset
   , addBehavior
   , removeBehavior
-  , listAll
   )
 import qualified Simulation.Node.Endpoint as Endpoint
 import Simulation.Node.Endpoint.AppCounter (AppCounter (..))
@@ -202,19 +202,21 @@ shallListCorrectNumberOfBehaviors = do
   c  <- nodeCounter
   ep <- Endpoint.create localhost gateway port c
   assertEqual "Shall be empty"
-               0 =<< length <$> listAll ep
+               0 =<< length <$> behaviors' ep
   b1 <- addBehavior emptyAction ep
   assertEqual "Shall be 1"
-               1 =<< length <$> listAll ep
+               1 =<< length <$> behaviors' ep
   b2 <- addBehavior emptyAction ep
   assertEqual "Shall be 2"
-               2 =<< length <$> listAll ep
+               2 =<< length <$> behaviors' ep
   void $ removeBehavior ep b2
   assertEqual "Shall be 1"
-               1 =<< length <$> listAll ep
+               1 =<< length <$> behaviors' ep
   void $ removeBehavior ep b1
   assertEqual "Shall be empty"
-               0 =<< length <$> listAll ep
+               0 =<< length <$> behaviors' ep
+    where
+      behaviors' = readTVarIO . behaviors
 
 -- | Test that the correct slogan is listed for a behavior
 shallListCorrectSlogan :: Assertion
@@ -222,7 +224,7 @@ shallListCorrectSlogan = do
   c  <- nodeCounter
   ep <- Endpoint.create localhost gateway port c
   void $ addBehavior emptyAction ep
-  theSlogan <- slogan . head <$> listAll ep
+  theSlogan <- slogan . head <$> readTVarIO (behaviors ep)
   assertEqual "Shall be equal"
               "TestSlogan" theSlogan
   

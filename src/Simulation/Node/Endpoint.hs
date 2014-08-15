@@ -1,11 +1,10 @@
 module Simulation.Node.Endpoint
-       ( Endpoint (counter)
+       ( Endpoint (behaviors, counter)
        , IpAddress
        , Simulation.Node.Endpoint.create
        , reset
        , addBehavior
        , removeBehavior
-       , listAll
        ) where
 
 import Control.Applicative ((<$>), (<*>))
@@ -137,8 +136,4 @@ maybeDelete behavior behaviors' = do
     writeTVar behaviors' (behavior `delete` xs)
     return True
     else return False
-                
--- List all behavior descriptors.
-listAll :: Endpoint c -> IO [Descriptor c]
-listAll endpoint = readTVarIO (behaviors endpoint)
 
